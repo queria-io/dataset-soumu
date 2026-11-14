@@ -1,0 +1,40 @@
+# この dataset.yml は fdl commit が読む（FDL の dataset.json を YAML で書いたもの）。
+# 表の説明は models/ の *.table.yml に書く。表と列の型・NULL・行数は fdl commit がカタログから埋める。
+name: soumu
+title: 総務省
+description: |-
+  総務省のウェブサイト（www.soumu.go.jp）が公開する資料のデータセットです。行政事業レビューのシートが関係する計画・通知等として挙げる総務省のサイトの PDF を、ページごとの本文で持ちます（plans）。毎月、シートの URL を取り直します。
+
+  出典：行政事業レビュー見える化サイト（https://rssystem.go.jp）、総務省ウェブサイト（https://www.soumu.go.jp/）の各資料を加工して作成
+keywords:
+  - 総務省
+  - 行政事業レビュー
+  - 計画・通知等
+homepage: https://github.com/queria-io/dataset-soumu
+language: ja
+
+licenses:
+  - JP-PDL-1.0
+
+sources:
+  - title: 行政事業レビュー見える化サイト（行政改革推進本部事務局）
+    path: https://rssystem.go.jp
+  - title: 総務省ウェブサイト
+    path: https://www.soumu.go.jp/
+
+contributors:
+  - title: 総務省
+    path: https://www.soumu.go.jp/
+    roles: [rightsHolder]
+
+spatial_coverage: [JP]
+update_frequency: monthly
+
+schemas:
+  - name: plans
+    title: 計画・通知等
+
+annotations:
+  queria:
+    themes: [government_finance]
+    cover: 🏛️
