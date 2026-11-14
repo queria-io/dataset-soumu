@@ -1,0 +1,16 @@
+name: "soumu"
+version: "1.0.0"
+
+profile: "soumu"
+
+model-paths: ["models"]
+macro-paths: ["shared/macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  soumu:
+    +database: soumu
+    +materialized: table

@@ -1,0 +1,27 @@
+name: Sync
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "*.md"
+  schedule:
+    # 行政事業レビューの URL の追加と差し替えを取り込む。毎月 13 日 04:00 JST に取る（gov_documents の取り込みより前）
+    - cron: "0 19 12 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    # Queria への書き込みは GitHub Actions の OIDC で 1 時間のトークンを取って行う
+    permissions:
+      contents: read
+      id-token: write
+    uses: queria-io/dataset-shared/.github/workflows/sync.yml@65a70f0ea45bbaebbf9adc0cedd61500ebe242e7
+    with:
+      dataset_name: soumu
+    secrets:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
