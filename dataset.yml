@@ -3,13 +3,16 @@
 name: soumu
 title: 総務省
 description: |-
-  総務省のウェブサイト（www.soumu.go.jp）が公開する資料のデータセットです。行政事業レビューのシートが関係する計画・通知等として挙げる総務省のサイトの PDF を、ページごとの本文で持ちます（plans）。毎月、シートの URL を取り直します。
+  総務省のウェブサイト（www.soumu.go.jp）が公開する資料のデータセットです。行政事業レビューのシートが関係する計画・通知等として挙げる総務省のサイトの PDF を、ページごとの本文で持ちます（plans）。毎月、シートの URL を取り直します。統計に用いる標準地域コードの一覧と、コードの変更（廃置分合）の履歴も持ちます（code）。
 
-  出典：行政事業レビュー見える化サイト（https://rssystem.go.jp）、総務省ウェブサイト（https://www.soumu.go.jp/）の各資料を加工して作成
+  出典：行政事業レビュー見える化サイト（https://rssystem.go.jp）、総務省ウェブサイト（https://www.soumu.go.jp/）の各資料、総務省「統計に用いる標準地域コード」を加工して作成
 keywords:
   - 総務省
   - 行政事業レビュー
   - 計画・通知等
+  - 標準地域コード
+  - 市区町村コード
+  - 廃置分合
 homepage: https://github.com/queria-io/dataset-soumu
 language: ja
 
@@ -21,6 +24,8 @@ sources:
     path: https://rssystem.go.jp
   - title: 総務省ウェブサイト
     path: https://www.soumu.go.jp/
+  - title: 統計に用いる標準地域コード（総務省）
+    path: https://www.soumu.go.jp/toukei_toukatsu/index/seido/9-5.htm
 
 contributors:
   - title: 総務省
@@ -33,8 +38,10 @@ update_frequency: monthly
 schemas:
   - name: plans
     title: 計画・通知等
+  - name: code
+    title: 統計に用いる標準地域コード
 
 annotations:
   queria:
-    themes: [government_finance]
+    themes: [government_finance, land_climate]
     cover: 🏛️
