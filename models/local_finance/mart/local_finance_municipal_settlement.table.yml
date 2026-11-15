@@ -2,14 +2,15 @@ schema: local_finance
 name: municipal_settlement
 title: 市町村別決算状況調（市区町村別・年度別・項目別）
 description: |-
-  総務省「市町村別決算状況調」の Excel を、1 行が 1 団体・1 年度・1 項目の縦持ちにしたテーブルです。2002 年度（平成 14 年度）から最新の年度まで、市区町村（特別区を含む）の普通会計の決算を持ちます。
+  総務省「市町村別決算状況調」の Excel のセルを、1 行が 1 団体・1 年度・1 項目の縦持ちにしたテーブルです。2002 年度（平成 14 年度）から最新の年度まで、市区町村（特別区を含む）の普通会計の決算を持ちます。
 
   - section は元の Excel の表で、概況・歳入内訳・目的別歳出内訳・性質別歳出内訳・地方債現在高等の 5 つです。2006 年度までの町村は、概況・歳入内訳と、歳出・収支・地方債現在高等をまとめた歳出内訳の 3 つです
   - item は Excel の見出しを親から順に「/」でつないだ項目名です（例: 地方税/うち固定資産税、民生費/児童福祉費）。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています。項目は年度によって追加・廃止・改称されます
   - 金額は千円です。単位は unit にあります
   - 値が「-」の項目は value が NULL で、value_text に「-」が入ります
   - lg_code は Excel に団体コードがある 2011 年度から入っています。2010 年度までは NULL です。その年度のコードは、codh.city.municipality（歴史的行政区域）と都道府県名・団体名・有効期間で結合すると引けます
-  - 都道府県計・全国計などの合計の行は入っていません
+  - 都道府県計・全国計などの合計の行と、空のセルは入っていません
+  - row_no・col_no は元の Excel のセルの位置で、raw_cells と同じ番号です
 keywords:
   - 総務省
   - 市町村別決算状況調
@@ -55,6 +56,7 @@ fields:
     description: 千円・人・%・km2。財政力指数は NULL
   - name: value
     title: 値
+    description: 全角の数字と「,」を正規化し、「△」「▲」を負の符号として読んだ数値
   - name: value_text
     title: 数値でない値
     description: Excel のセルが数値でないときの値（「-」など）。数値のときは NULL
@@ -62,3 +64,9 @@ fields:
     title: 出典の Excel の URL
   - name: page_url
     title: 出典の年度のページの URL
+  - name: row_no
+    title: Excel の行番号
+    description: 1 から数えた元の Excel の行番号
+  - name: col_no
+    title: Excel の列番号
+    description: 1 から数えた元の Excel の列番号（A 列が 1）

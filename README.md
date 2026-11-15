@@ -19,37 +19,49 @@
 
 ## 地方財政（local_finance）
 
-総務省の[市町村別決算状況調](https://www.soumu.go.jp/iken/kessan_jokyo_2.html)の Excel（2002 年度から最新の年度まで、都市別・町村別の概況・歳入内訳・目的別歳出内訳・性質別歳出内訳・地方債現在高等）を、1 行が 1 団体・1 年度・1 項目の縦持ちにしています。
+総務省の[市町村別決算状況調](https://www.soumu.go.jp/iken/kessan_jokyo_2.html)の Excel（2002 年度から最新の年度まで、都市別・町村別の概況・歳入内訳・目的別歳出内訳・性質別歳出内訳・地方債現在高等）を取り込んでいます。Excel のセルをそのまま持つテーブルから、見出しと団体の行を読み、縦持ちと表ごとの横持ちのテーブルを作ります。
 
 | テーブル | 内容 |
 | --- | --- |
-| `local_finance.municipal_settlement` | 1 行が 1 団体・1 年度・1 項目。項目名・単位・値・出典の Excel の URL |
+| `local_finance.municipal_settlement` | 1 行が 1 団体・1 年度・1 項目の縦持ち。項目名・単位・値・出典の Excel の URL とセルの位置 |
+| `local_finance.municipal_overview` | 概況の横持ち（人口・財政力指数・経常収支比率・実質収支など） |
+| `local_finance.municipal_revenue` | 歳入内訳の横持ち |
+| `local_finance.municipal_expenditure_by_purpose` | 目的別歳出内訳の横持ち |
+| `local_finance.municipal_expenditure_by_nature` | 性質別歳出内訳の横持ち |
+| `local_finance.municipal_debt` | 地方債現在高等の横持ち |
+| `local_finance.municipal_town_expenditure` | 2006 年度までの町村の歳出内訳の横持ち |
+| `local_finance.raw_cells` | Excel の空でないセルの値（文字のまま） |
+| `local_finance.raw_merged_cells` | Excel の結合セルの範囲 |
+| `local_finance.stg_sheets` | Excel ごとの年度・区分・表と、見出しと団体の行・列の位置 |
+| `local_finance.stg_columns` | Excel の列ごとの項目名と単位 |
+| `local_finance.stg_rows` | Excel の団体の行と、都道府県名・団体名・団体コード |
 
-- 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています
+- 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています。横持ちのテーブルでは、この項目名が列名です
+- 項目は年度によって追加・廃止・改称されます。横持ちのテーブルでは、その年度の Excel に無い項目は NULL です
+- `municipal_settlement` の `row_no`・`col_no` は元の Excel のセルの位置で、`raw_cells` と同じ番号です
 - 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください。その年度のコードが要るときは、下の例のように `codh.city.municipality`（歴史的行政区域）と有効期間で結合します
-- 都道府県計・全国計などの合計の行は入っていません
+- 都道府県計・全国計などの合計の行は、縦持ちと横持ちのテーブルには入っていません
 - 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得します
 
 ```sql
--- 札幌市の歳入総額と地方税（千円）
-SELECT fiscal_year, item, value
-FROM soumu.local_finance.municipal_settlement
-WHERE pref_name = '北海道' AND entity_name = '札幌市' AND item IN ('歳入総額', '地方税')
-ORDER BY fiscal_year, item;
+-- 札幌市の地方税と地方債（千円）
+SELECT fiscal_year, "地方税", "地方債"
+FROM soumu.local_finance.municipal_revenue
+WHERE pref_name = '北海道' AND entity_name = '札幌市'
+ORDER BY fiscal_year;
 ```
 
 ```sql
 -- 2010 年度までの行に、その年度末（3 月 31 日）に有効だった団体コードを付ける
-SELECT s.fiscal_year, s.pref_name, s.entity_name, coalesce(s.lg_code, m.lg_code) AS lg_code, s.item, s.value
-FROM soumu.local_finance.municipal_settlement AS s
+SELECT s.fiscal_year, s.pref_name, s.entity_name, coalesce(s.lg_code, m.lg_code) AS lg_code, s."歳入総額"
+FROM soumu.local_finance.municipal_overview AS s
 LEFT JOIN codh.city.municipality AS m
   ON s.lg_code IS NULL
  AND m.prefecture = s.pref_name
  AND m.full_name = s.entity_name
  AND NOT (m.suffix = '区' AND m.county_or_city IS NOT NULL)  -- 政令指定都市の区を除く
  AND m.valid_from <= make_date(s.fiscal_year + 1, 3, 31)
- AND coalesce(m.valid_to > make_date(s.fiscal_year + 1, 3, 31), true)
-WHERE s.item = '歳入総額';
+ AND coalesce(m.valid_to > make_date(s.fiscal_year + 1, 3, 31), true);
 ```
 
 同じ都道府県に同じ名前の町村があった年度は、Excel の団体名に郡名が付いている（「一宮町・宍粟」）ので、この結合では当たりません。

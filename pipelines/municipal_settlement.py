@@ -8,6 +8,7 @@ Excel がある。年度によって列の並び・見出し・ファイルの�
 出典: 総務省「市町村別決算状況調」 https://www.soumu.go.jp/iken/kessan_jokyo_2.html
 """
 
+import contextlib
 import csv
 import io
 import json
@@ -138,6 +139,15 @@ def read_grid(content: bytes, url: str) -> tuple[list[list], dict[tuple[int, int
     return grid, merged
 
 
+def merged_ranges(merged: dict[tuple[int, int], tuple[int, int]]) -> list[tuple[int, int, int, int]]:
+    """結合セルの対応から、範囲（行の始まり・終わりの次・列の始まり・終わりの次、0 始まり）を戻す。"""
+    corners = {}
+    for (r, c), (r0, c0) in merged.items():
+        _, r1, _, c1 = corners.get((r0, c0), (r0, r0, c0, c0))
+        corners[r0, c0] = (r0, max(r1, r + 1), c0, max(c1, c + 1))
+    return sorted(corners.values())
+
+
 def cell(grid: list[list], r: int, c: int):
     return grid[r][c] if r < len(grid) and c < len(grid[r]) else None
 
@@ -159,12 +169,6 @@ def as_number(value) -> float | None:
         return float(text)
     except ValueError:
         return None
-
-
-def value(raw) -> tuple[float | None, str | None]:
-    """セルの値を数値と、数値でないときの元の文字（「-」など）に分ける。"""
-    number = as_number(raw)
-    return number, None if number is not None else normalize(raw) or None
 
 
 def header_texts(grid: list[list], merged: dict, rows: range, cols: range) -> dict[tuple[int, int], str]:
@@ -322,9 +326,21 @@ def numbered_columns(grid: list[list], merged: dict, rows: range, cols: list[int
     return columns
 
 
-def parse(content: bytes, file: dict, category: str | None) -> tuple[str, list[tuple]]:
-    """Excel 1 つを読み、(区分, 行のリスト) を返す。区分の書かれていないシート（概況その2）は前のファイルの区分を使う。"""
-    grid, merged = read_grid(content, file["url"])
+def raw_text(value) -> str | None:
+    """セルの値をそのまま文字にする。整数の浮動小数点数は小数点を付けない。空のセルは None。"""
+    if value is None or value == "":
+        return None
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def parse(grid: list[list], merged: dict, file: dict, category: str | None) -> dict:
+    """シート 1 つの見出しと行を読む。
+
+    区分の書かれていないシート（概況その2）は前のファイルの区分（category）を使う。
+    返すのは、シート（区分・表）と、列ごとの項目名・単位と、団体の行（都道府県・団体名・団体コード）。
+    """
     header = next(
         r for r, row in enumerate(grid) if any(normalize(v) == "団体名" for v in row)
     )
@@ -344,21 +360,20 @@ def parse(content: bytes, file: dict, category: str | None) -> tuple[str, list[t
         r"単位|都市別|町村別", above
     ):
         top -= 1
-    rows = range(top, first)
     title = sheet_title(grid, top)
     category = "都市" if "都市別" in title else "町村" if "町村別" in title else category
     # 概況その2 のシートには表の名前が無い
     table = next((name for name in TABLES if name in title), "概況")
     sheet_unit = "千円" if "千円" in title else None
     cols = [c for c in range(name_col + 1, max(len(row) for row in grid)) if c != code_col]
-    columns = (merged_columns if merged else numbered_columns)(grid, merged, rows, cols)
+    columns = (merged_columns if merged else numbered_columns)(grid, merged, range(top, first), cols)
     columns = {
         # 財政力指数は単位の無い指数
         c: (item, None if "財政力指数" in item else unit or sheet_unit)
         for c, (item, unit) in attach_subsets(columns).items()
     }
 
-    rows, pref = [], None
+    entities, pref = [], None
     for r in range(first, len(grid)):
         texts = [normalize(v) for v in grid[r]]
         found = next((prefecture(t) for t in texts if prefecture(t)), None)
@@ -372,57 +387,81 @@ def parse(content: bytes, file: dict, category: str | None) -> tuple[str, list[t
         # 注記の行（「2.平成20年4月1日以降の…」）は値を持たない
         if all(as_number(cell(grid, r, c)) is None for c in columns):
             continue
-        rows += [
-            (
-                file["fiscal_year"],
-                category,
-                code,
-                pref,
-                name,
-                table,
-                item,
-                unit,
-                *value(cell(grid, r, c)),
-                file["url"],
-                file["page_url"],
-            )
-            for c, (item, unit) in columns.items()
-        ]
-    return category, rows
+        entities.append((r, pref, name, code))
+
+    return {
+        "category": category,
+        "sheet": (file["url"], file["page_url"], file["fiscal_year"], category, table, top + 1, first + 1, name_col + 1, code_col + 1 if code_col is not None else None),
+        "columns": [(file["url"], c + 1, item, unit) for c, (item, unit) in columns.items()],
+        "rows": [(file["url"], r + 1, pref, name, code) for r, pref, name, code in entities],
+    }
 
 
-COLUMNS = {
-    "fiscal_year": "INTEGER",
-    "entity_group": "VARCHAR",
-    "lg_code": "VARCHAR",
-    "pref_name": "VARCHAR",
-    "entity_name": "VARCHAR",
-    "section": "VARCHAR",
-    "item": "VARCHAR",
-    "unit": "VARCHAR",
-    "value": "DOUBLE",
-    "value_text": "VARCHAR",
-    "source_url": "VARCHAR",
-    "page_url": "VARCHAR",
+# Parquet にするテーブルと列。行番号・列番号は Excel と同じ 1 始まり
+TABLES_OUT = {
+    "raw_cells": {"source_url": "VARCHAR", "row_no": "INTEGER", "col_no": "INTEGER", "value": "VARCHAR"},
+    "raw_merged_cells": {
+        "source_url": "VARCHAR",
+        "first_row": "INTEGER",
+        "last_row": "INTEGER",
+        "first_col": "INTEGER",
+        "last_col": "INTEGER",
+    },
+    "stg_sheets": {
+        "source_url": "VARCHAR",
+        "page_url": "VARCHAR",
+        "fiscal_year": "INTEGER",
+        "entity_group": "VARCHAR",
+        "section": "VARCHAR",
+        "header_first_row": "INTEGER",
+        "data_first_row": "INTEGER",
+        "name_col": "INTEGER",
+        "code_col": "INTEGER",
+    },
+    "stg_columns": {"source_url": "VARCHAR", "col_no": "INTEGER", "item": "VARCHAR", "unit": "VARCHAR"},
+    "stg_rows": {
+        "source_url": "VARCHAR",
+        "row_no": "INTEGER",
+        "pref_name": "VARCHAR",
+        "entity_name": "VARCHAR",
+        "lg_code": "VARCHAR",
+    },
 }
 
 
 def build_parquet() -> None:
     files = json.loads((RAW_DIR / "files.json").read_text(encoding="utf-8"))
     PARQUET_DIR.mkdir(parents=True, exist_ok=True)
-    # 行数が 1 千万を超えるので、CSV に書いてから DuckDB で Parquet にする
-    staging = RAW_DIR / "figures.csv"
-    category, count = None, 0
-    with staging.open("w", newline="", encoding="utf-8") as out:
-        writer = csv.writer(out)
+    # セルの数が 1 千万を超えるので、CSV に書いてから DuckDB で Parquet にする
+    paths = {name: RAW_DIR / f"{name}.csv" for name in TABLES_OUT}
+    with contextlib.ExitStack() as stack:
+        writers = {
+            name: csv.writer(stack.enter_context(path.open("w", newline="", encoding="utf-8")))
+            for name, path in paths.items()
+        }
+        category = None
         for file in files:
-            category, rows = parse(local_path(file["url"]).read_bytes(), file, category)
-            writer.writerows(rows)
-            count += len(rows)
-    columns = ", ".join(f"'{name}': '{type_}'" for name, type_ in COLUMNS.items())
-    duckdb.execute(
-        f"COPY (SELECT * FROM read_csv('{staging}', header = false, columns = {{{columns}}}))"
-        f" TO '{PARQUET_DIR / 'local_finance_municipal_settlement.parquet'}' (FORMAT parquet, COMPRESSION zstd)"
-    )
-    staging.unlink()
-    logger.info("municipal_settlement: %d ファイル %d 行", len(files), count)
+            grid, merged = read_grid(local_path(file["url"]).read_bytes(), file["url"])
+            writers["raw_cells"].writerows(
+                (file["url"], r + 1, c + 1, text)
+                for r, row in enumerate(grid)
+                for c, value in enumerate(row)
+                if (text := raw_text(value)) is not None
+            )
+            writers["raw_merged_cells"].writerows(
+                (file["url"], r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in merged_ranges(merged)
+            )
+            sheet = parse(grid, merged, file, category)
+            category = sheet["category"]
+            writers["stg_sheets"].writerow(sheet["sheet"])
+            writers["stg_columns"].writerows(sheet["columns"])
+            writers["stg_rows"].writerows(sheet["rows"])
+    for name, columns in TABLES_OUT.items():
+        spec = ", ".join(f"'{column}': '{type_}'" for column, type_ in columns.items())
+        duckdb.execute(
+            f"COPY (SELECT * FROM read_csv('{paths[name]}', header = false, quote = '\"',"
+            f" escape = '\"', columns = {{{spec}}}))"
+            f" TO '{PARQUET_DIR / f'local_finance_{name}.parquet'}' (FORMAT parquet, COMPRESSION zstd)"
+        )
+        paths[name].unlink()
+    logger.info("municipal_settlement: %d ファイル", len(files))

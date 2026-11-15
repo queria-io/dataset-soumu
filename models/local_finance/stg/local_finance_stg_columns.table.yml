@@ -1,0 +1,18 @@
+schema: local_finance
+name: stg_columns
+title: 市町村別決算状況調 Excel の列の項目
+description: |-
+  Excel の値の列ごとの項目名と単位です。見出しを親から順に「/」でつないでいます。
+annotations: { queria: { published: false } }
+primary_key: [source_url, col_no]
+sources:
+  - path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
+fields:
+  - name: source_url
+    title: 出典の Excel の URL
+  - name: col_no
+    title: 列番号
+  - name: item
+    title: 項目
+  - name: unit
+    title: 単位

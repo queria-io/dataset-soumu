@@ -1,0 +1,21 @@
+schema: local_finance
+name: raw_cells
+title: 市町村別決算状況調 Excel のセル
+description: |-
+  総務省「市町村別決算状況調」の Excel（1 ファイル 1 シート）の、空でないセルの値を文字のまま持つテーブルです。見出し・団体・合計・注記の行もすべて入っています。
+annotations: { queria: { published: false } }
+primary_key: [source_url, row_no, col_no]
+sources:
+  - path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
+fields:
+  - name: source_url
+    title: 出典の Excel の URL
+  - name: row_no
+    title: 行番号
+    description: 1 から数えた行番号
+  - name: col_no
+    title: 列番号
+    description: 1 から数えた列番号（A 列が 1）
+  - name: value
+    title: セルの値
+    description: Excel のセルの値の文字。数値は Excel が持つ値をそのまま文字にしています
