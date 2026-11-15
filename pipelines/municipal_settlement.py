@@ -2,9 +2,8 @@
 
 年度ごとのページ（https://www.soumu.go.jp/iken/kessan_jokyo_2.html から辿る）に、
 都市別・町村別の (1) 概況 (2) 歳入内訳 (3) 目的別歳出内訳 (4) 性質別歳出内訳 (5) 地方債現在高等 の
-Excel がある。ここでは取得したファイルの一覧（source_file）と、Excel の空でないセルと
-結合セルの範囲を、手を加えずに表にする。
-見出しから項目名を作り、団体の行を見つけるのは dbt の stg（pipelines/settlement_layout.py）。
+Excel がある。取得したファイルの一覧（source_file）と、Excel の空でないセルと結合セルの範囲を
+そのまま表にし、あわせて見出しから列ごとの項目名を作り、団体の行を見つける（pipelines/settlement_layout.py）。
 
 出典: 総務省「市町村別決算状況調」 https://www.soumu.go.jp/iken/kessan_jokyo_2.html
 """
@@ -23,6 +22,8 @@ import duckdb
 import openpyxl
 import xlrd
 
+from pipelines.settlement_layout import COLUMNS as LAYOUT_COLUMNS
+from pipelines.settlement_layout import parse_file
 from shared.fetch import fetch, fetch_file, write_atomic
 
 logger = logging.getLogger("pipelines")
@@ -169,6 +170,8 @@ TABLES_OUT = {
         "first_col": "INTEGER",
         "last_col": "INTEGER",
     },
+    # 見出しと団体の行の読み取り（settlement_layout.parse_file）
+    **{f"raw_{name}": columns for name, columns in LAYOUT_COLUMNS.items()},
 }
 
 
@@ -188,18 +191,25 @@ def build_parquet() -> None:
             name: csv.writer(stack.enter_context(path.open("w", newline="", encoding="utf-8")))
             for name, path in paths.items()
         }
-        for file in files:
+        category = None
+        for file in sorted(files, key=lambda file: file["file_no"]):
             sha256 = file["sha256"]
             sheet, grid, ranges = read_grid(local_path(file["url"]).read_bytes(), file["url"])
-            writers["raw_cells"].writerows(
-                (sha256, sheet, r + 1, c + 1, text)
+            cells = [
+                (r + 1, c + 1, text)
                 for r, row in enumerate(grid)
                 for c, value in enumerate(row)
                 if (text := raw_text(value)) is not None
-            )
-            writers["raw_merged_cells"].writerows(
-                (sha256, sheet, r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges
-            )
+            ]
+            merged = [(r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges]
+            writers["raw_cells"].writerows((sha256, sheet, *cell) for cell in cells)
+            writers["raw_merged_cells"].writerows((sha256, sheet, *rng) for rng in merged)
+            # 区分の書かれていないシートは、一覧で前のファイルの区分を引き継ぐ
+            layout = parse_file(cells, merged, file, category)
+            category = layout["category"]
+            writers["raw_sheets"].writerow(layout["sheet"])
+            writers["raw_columns"].writerows(layout["columns"])
+            writers["raw_rows"].writerows(layout["rows"])
     for name, columns in TABLES_OUT.items():
         spec = ", ".join(f"'{column}': '{type_}'" for column, type_ in columns.items())
         duckdb.execute(

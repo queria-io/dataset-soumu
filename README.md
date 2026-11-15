@@ -34,10 +34,11 @@
 | `local_finance.raw_cells` | Excel の空でないセルの値（文字のまま） |
 | `local_finance.raw_merged_cells` | Excel の結合セルの範囲 |
 | `local_finance.raw_source_file` | 取得した Excel の一覧（取得の記録） |
+| `local_finance.raw_sheets` | Excel ごとの年度・区分・表と、見出しと団体の行・列の位置（pipelines が見出しから読んだもの） |
+| `local_finance.raw_columns` | Excel の列ごとの項目名と単位（同上） |
+| `local_finance.raw_rows` | Excel の団体の行と、都道府県名・団体名・団体コード（同上） |
 | `local_finance.stg_source_file` | 取得した Excel の一覧の取得日時を日時の型にしたもの |
-| `local_finance.stg_sheets` | Excel ごとの年度・区分・表と、見出しと団体の行・列の位置 |
-| `local_finance.stg_columns` | Excel の列ごとの項目名と単位 |
-| `local_finance.stg_rows` | Excel の団体の行と、都道府県名・団体名・団体コード |
+| `local_finance.stg_sheets`・`stg_columns`・`stg_rows` | raw_sheets・raw_columns・raw_rows の列を選んだもの |
 | `local_finance.stg_cells` | セルの値の前後の空白を除き、数値として読める値を数値にしたもの |
 
 - 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています。国勢調査人口と産業構造は見出しの国勢調査の年を外して `census_year` に置き（`国勢調査人口/令2.10.1` → `国勢調査人口`、2020）、「補てん」は「補塡」に統一しています。元の見出しは `stg_columns.heading` にあります。横持ちのテーブルでは、この項目名が列名です
@@ -45,7 +46,7 @@
 - `municipal_settlement` の `source_sha256`・`source_sheet`・`row_no`・`col_no` は元の Excel のファイル・シート・セルの位置です。ファイルは `source_file` の `sha256` で引けます
 - 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください。その年度のコードが要るときは、下の例のように `codh.city.municipality`（歴史的行政区域）と有効期間で結合します
 - 都道府県計・全国計などの合計の行は、縦持ちと横持ちのテーブルには入っていません
-- 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得し、前回の取得から変わっていない（`ETag`・`Last-Modified` が同じ）ファイルは取得し直しません。セルと結合セルの範囲はそのまま raw にします。見出しから項目名を作り団体の行を見つける処理は `pipelines/settlement_layout.py` にあり、dbt の Python モデル（`models/local_finance/stg/*.py`）が raw から呼びます
+- 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得し、前回の取得から変わっていない（`ETag`・`Last-Modified` が同じ）ファイルは取得し直しません。セルと結合セルの範囲はそのまま raw にします。あわせて `pipelines/settlement_layout.py` が見出しから列ごとの項目名を作り、団体の行を見つけ、raw_sheets・raw_columns・raw_rows にします
 
 ```sql
 -- 札幌市の地方税と地方債（千円）
