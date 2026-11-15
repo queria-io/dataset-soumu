@@ -2,6 +2,7 @@
 
 -- raw_cells のうち、団体の行（stg_rows）と項目の列（stg_columns）が交わるセル。
 -- 数値は全角の数字・符号と空白を正規化し、△・▲ を負の符号として読む。
+-- 数値でない値の全角の「－」は「-」にする。
 WITH cells AS (
     SELECT
         source_url,
@@ -26,7 +27,7 @@ SELECT
     c.item,
     c.unit,
     x.number AS value,
-    CASE WHEN x.number IS NULL THEN x.value END AS value_text,
+    CASE WHEN x.number IS NULL THEN translate(x.value, '－', '-') END AS value_text,
     s.source_url,
     s.page_url,
     x.row_no,

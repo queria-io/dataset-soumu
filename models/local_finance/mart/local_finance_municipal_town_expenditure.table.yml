@@ -7,7 +7,7 @@ description: |-
   - 値は municipal_settlement の value と同じです。列名は municipal_settlement の item で、見出しを親から順に「/」でつないだ名前です
   - 列は最新の年度の Excel の並びで、最新の年度に無い項目はその後ろにあります。項目は年度によって追加・廃止・改称されるので、その年度の Excel に無い項目は NULL です
   - 「-」などの数値でないセルは NULL です。数値でない値と単位は municipal_settlement にあります
-  - lg_code は 2011 年度から入っています。2010 年度までは NULL で、その年度のコードは codh.city.municipality（歴史的行政区域）と都道府県名・団体名・有効期間で結合すると引けます
+  - 2006 年度までの Excel には団体コードが無いので、lg_code と area_code はすべて NULL です。その年度のコードは codh.city.municipality（歴史的行政区域）と都道府県名・団体名・有効期間で結合すると引けます
   - 2007 年度からは、目的別歳出内訳・性質別歳出内訳・地方債現在高等の 3 つの表に分かれています（municipal_expenditure_by_purpose・municipal_expenditure_by_nature・municipal_debt）
 keywords:
   - 総務省

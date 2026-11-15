@@ -18,7 +18,7 @@ SELECT
     pref_name,
     entity_name,
     {%- for item in items %}
-    max(value) FILTER (WHERE item = '{{ item }}') AS "{{ item }}",
+    max(value) FILTER (WHERE item = '{{ item | replace("'", "''") }}') AS "{{ item | replace('"', '""') }}",
     {%- endfor %}
     page_url
 FROM {{ ref('local_finance_municipal_settlement') }}

@@ -74,20 +74,20 @@ def list_files() -> list[dict]:
         for href, title in links(index, r"/zaisei/[^/]+\.html$")
         if title.endswith("市町村別決算状況調")
     ]
-    files = []
+    files = {}
     for page_url, title in pages:
         html = get(page_url).decode("cp932")
-        files += [
-            {
-                "fiscal_year": fiscal_year(title),
-                "page_url": page_url,
-                "url": urljoin(page_url, href),
-                "link_text": text,
-            }
-            for href, text in links(html, r"(?i)\.xlsx?$")
-            if "参考" not in text
-        ]
-    return files
+        # 同じ Excel への 2 つ目のリンクは読まない（1 つのファイルを 2 回取り込むと行が重複する）
+        for href, text in links(html, r"(?i)\.xlsx?$"):
+            url = urljoin(page_url, href)
+            if "参考" not in text and url not in files:
+                files[url] = {
+                    "fiscal_year": fiscal_year(title),
+                    "page_url": page_url,
+                    "url": url,
+                    "link_text": text,
+                }
+    return list(files.values())
 
 
 def local_path(url: str) -> Path:
@@ -118,8 +118,14 @@ def normalize(value) -> str:
     return re.sub(r"\s+", "", unicodedata.normalize("NFKC", str(value)))
 
 
-def read_grid(content: bytes, url: str) -> tuple[list[list], dict[tuple[int, int], tuple[int, int]]]:
-    """最初のシートのセルの値と、結合セルの各セルから左上のセルへの対応を返す。"""
+Range = tuple[int, int, int, int]
+
+
+def read_grid(
+    content: bytes, url: str
+) -> tuple[list[list], list[Range], dict[tuple[int, int], tuple[int, int]]]:
+    """最初のシートのセルの値と、結合セルの範囲（行の始まり・終わりの次・列の始まり・終わりの次、
+    0 始まり）と、結合セルの各セルから左上のセルへの対応を返す。"""
     if url.lower().endswith(".xlsx"):
         sheet = openpyxl.load_workbook(io.BytesIO(content), data_only=True).worksheets[0]
         grid = [list(row) for row in sheet.iter_rows(values_only=True)]
@@ -136,16 +142,7 @@ def read_grid(content: bytes, url: str) -> tuple[list[list], dict[tuple[int, int
         for r in range(r0, r1)
         for c in range(c0, c1)
     }
-    return grid, merged
-
-
-def merged_ranges(merged: dict[tuple[int, int], tuple[int, int]]) -> list[tuple[int, int, int, int]]:
-    """結合セルの対応から、範囲（行の始まり・終わりの次・列の始まり・終わりの次、0 始まり）を戻す。"""
-    corners = {}
-    for (r, c), (r0, c0) in merged.items():
-        _, r1, _, c1 = corners.get((r0, c0), (r0, r0, c0, c0))
-        corners[r0, c0] = (r0, max(r1, r + 1), c0, max(c1, c + 1))
-    return sorted(corners.values())
+    return grid, sorted(ranges), merged
 
 
 def cell(grid: list[list], r: int, c: int):
@@ -366,7 +363,11 @@ def parse(grid: list[list], merged: dict, file: dict, category: str | None) -> d
     table = next((name for name in TABLES if name in title), "概況")
     sheet_unit = "千円" if "千円" in title else None
     cols = [c for c in range(name_col + 1, max(len(row) for row in grid)) if c != code_col]
-    columns = (merged_columns if merged else numbered_columns)(grid, merged, range(top, first), cols)
+    # 表題や注記の結合セルではなく、見出しの行に結合セルがあるかで読み方を決める
+    header_merged = any(top <= r < first for r, _ in merged)
+    columns = (merged_columns if header_merged else numbered_columns)(
+        grid, merged, range(top, first), cols
+    )
     columns = {
         # 財政力指数は単位の無い指数
         c: (item, None if "財政力指数" in item else unit or sheet_unit)
@@ -441,7 +442,7 @@ def build_parquet() -> None:
         }
         category = None
         for file in files:
-            grid, merged = read_grid(local_path(file["url"]).read_bytes(), file["url"])
+            grid, ranges, merged = read_grid(local_path(file["url"]).read_bytes(), file["url"])
             writers["raw_cells"].writerows(
                 (file["url"], r + 1, c + 1, text)
                 for r, row in enumerate(grid)
@@ -449,7 +450,7 @@ def build_parquet() -> None:
                 if (text := raw_text(value)) is not None
             )
             writers["raw_merged_cells"].writerows(
-                (file["url"], r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in merged_ranges(merged)
+                (file["url"], r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges
             )
             sheet = parse(grid, merged, file, category)
             category = sheet["category"]
