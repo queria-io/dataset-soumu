@@ -1,0 +1,4 @@
+schema: code
+name: stg_municipality_change
+description: raw_municipality_change の施行日を日付にした中間テーブル。
+annotations: { queria: { published: false } }

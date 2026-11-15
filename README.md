@@ -32,11 +32,12 @@
 | `local_finance.municipal_town_expenditure` | 2006 年度までの町村の歳出内訳の横持ち |
 | `local_finance.raw_cells` | Excel の空でないセルの値（文字のまま） |
 | `local_finance.raw_merged_cells` | Excel の結合セルの範囲 |
-| `local_finance.stg_sheets` | Excel ごとの年度・区分・表と、見出しと団体の行・列の位置 |
-| `local_finance.stg_columns` | Excel の列ごとの項目名と単位 |
-| `local_finance.stg_rows` | Excel の団体の行と、都道府県名・団体名・団体コード |
+| `local_finance.raw_sheets` | Excel ごとの年度・区分・表と、見出しと団体の行・列の位置 |
+| `local_finance.raw_columns` | Excel の列ごとの項目名と単位 |
+| `local_finance.raw_rows` | Excel の団体の行と、都道府県名・団体名・団体コード |
+| `local_finance.stg_*` | raw の各表の列を選んで型付けしたもの。`stg_cells` はセルの値を数値として読む |
 
-- 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています。国勢調査人口と産業構造は見出しの国勢調査の年を外して `census_year` に置き（`国勢調査人口/令2.10.1` → `国勢調査人口`、2020）、「補てん」は「補塡」に統一しています。元の見出しは `stg_columns.heading` にあります。横持ちのテーブルでは、この項目名が列名です
+- 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています。国勢調査人口と産業構造は見出しの国勢調査の年を外して `census_year` に置き（`国勢調査人口/令2.10.1` → `国勢調査人口`、2020）、「補てん」は「補塡」に統一しています。元の見出しは `raw_columns.heading` にあります。横持ちのテーブルでは、この項目名が列名です
 - 項目は年度によって追加・廃止・改称されます。横持ちのテーブルでは、その年度の Excel に無い項目は NULL です
 - `municipal_settlement` の `row_no`・`col_no` は元の Excel のセルの位置で、`raw_cells` と同じ番号です
 - 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください。その年度のコードが要るときは、下の例のように `codh.city.municipality`（歴史的行政区域）と有効期間で結合します

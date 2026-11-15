@@ -1,0 +1,22 @@
+schema: local_finance
+name: raw_rows
+title: 市町村別決算状況調 Excel の団体の行
+description: |-
+  Excel の行のうち、団体の行です。合計・注記の行は入っていません。
+annotations: { queria: { published: false } }
+primary_key: [source_url, row_no]
+sources:
+  - path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
+fields:
+  - name: source_url
+    title: 出典の Excel の URL
+  - name: row_no
+    title: 行番号
+  - name: pref_name
+    title: 都道府県名
+  - name: entity_name
+    title: 団体名
+  - name: lg_code
+    title: 全国地方公共団体コード（6桁）
+    description: 2010 年度までは NULL
+    annotations: { queria: { semantic: { role: entity, name: city } } }

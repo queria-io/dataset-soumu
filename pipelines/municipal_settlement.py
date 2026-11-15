@@ -431,7 +431,7 @@ TABLES_OUT = {
         "first_col": "INTEGER",
         "last_col": "INTEGER",
     },
-    "stg_sheets": {
+    "raw_sheets": {
         "source_url": "VARCHAR",
         "page_url": "VARCHAR",
         "fiscal_year": "INTEGER",
@@ -442,7 +442,7 @@ TABLES_OUT = {
         "name_col": "INTEGER",
         "code_col": "INTEGER",
     },
-    "stg_columns": {
+    "raw_columns": {
         "source_url": "VARCHAR",
         "col_no": "INTEGER",
         "heading": "VARCHAR",
@@ -450,7 +450,7 @@ TABLES_OUT = {
         "census_year": "INTEGER",
         "unit": "VARCHAR",
     },
-    "stg_rows": {
+    "raw_rows": {
         "source_url": "VARCHAR",
         "row_no": "INTEGER",
         "pref_name": "VARCHAR",
@@ -484,9 +484,9 @@ def build_parquet() -> None:
             )
             sheet = parse(grid, merged, file, category)
             category = sheet["category"]
-            writers["stg_sheets"].writerow(sheet["sheet"])
-            writers["stg_columns"].writerows(sheet["columns"])
-            writers["stg_rows"].writerows(sheet["rows"])
+            writers["raw_sheets"].writerow(sheet["sheet"])
+            writers["raw_columns"].writerows(sheet["columns"])
+            writers["raw_rows"].writerows(sheet["rows"])
     for name, columns in TABLES_OUT.items():
         spec = ", ".join(f"'{column}': '{type_}'" for column, type_ in columns.items())
         duckdb.execute(

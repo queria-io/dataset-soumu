@@ -1,0 +1,4 @@
+schema: code
+name: raw_municipality
+description: pipelines/area_code.py が取得した標準地域コードの一覧（municipality.ndjson）を、そのまま読んだ中間テーブル。
+annotations: { queria: { published: false } }
