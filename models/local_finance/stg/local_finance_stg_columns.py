@@ -1,13 +1,9 @@
 """Excel の値の列ごとの見出し・項目名・単位。raw のセルから pipelines/settlement_layout.py で読む。"""
 
 import csv
-import os
-import sys
 import tempfile
 
-# dbt はリポジトリの直下で動くので、そこから pipelines を読めるようにする
-sys.path.insert(0, os.getcwd())
-from pipelines.settlement_layout import COLUMNS, parse_cells  # noqa: E402
+from pipelines.settlement_layout import COLUMNS, parse_cells
 
 
 def model(dbt, session):
