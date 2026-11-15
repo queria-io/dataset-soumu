@@ -14,3 +14,10 @@ models:
   soumu:
     +database: soumu
     +materialized: table
+    plans:
+      raw:
+        +materialized: table
+      stg:
+        +materialized: view
+      mart:
+        +materialized: table
