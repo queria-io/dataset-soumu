@@ -21,4 +21,5 @@ jobs:
       - run: uv sync
       - run: uv run python -c "from pipelines import plans; plans.download_plans(); plans.build_plans_parquet()"
       - run: uv run python -c "from pipelines import municipal_settlement as m; m.download(); m.build_parquet()"
+      - run: uv run python -c "from pipelines import area_code; area_code.build()"
       - run: uv run dbt build --profiles-dir ci

@@ -66,10 +66,30 @@ LEFT JOIN codh.city.municipality AS m
 
 同じ都道府県に同じ名前の町村があった年度は、Excel の団体名に郡名が付いている（「一宮町・宍粟」）ので、この結合では当たりません。
 
+## 統計に用いる標準地域コード（code）
+
+総務省の「[統計に用いる標準地域コード](https://www.soumu.go.jp/toukei_toukatsu/index/seido/9-5.htm)」のページに載る CSV と Excel を取得しています。
+
+| テーブル | 内容 |
+| --- | --- |
+| `code.municipality` | 1 行が 1 つの標準地域コード（5 桁）。現行の都道府県・郡・政令指定都市・行政区・市区町村 |
+| `code.municipality_change` | 1 行が 1 件のコードの変更（合併・編入・区の再編など）。2007 年 4 月 2 日以降 |
+
+- 市区町村を数えるときは `is_municipality` で絞ります（政令指定都市は 1 団体、東京 23 区は 23 団体）
+- 行政区の行の `municipality_code` は所属する政令指定都市のコードです。区ごとのデータを市にまとめるときに使います
+- 全国地方公共団体コード（6 桁）の先頭 5 桁が標準地域コードです
+
+```sql
+SELECT area_code, pref_name, municipality_name
+FROM soumu.code.municipality
+WHERE is_municipality AND pref_name = '東京都'
+```
+
 ## 出典と利用条件
 
 - 行政事業レビュー見える化サイト（https://rssystem.go.jp）のレビューシートの URL を使っています
 - 市町村別決算状況調は総務省「市町村別決算状況調」（https://www.soumu.go.jp/iken/kessan_jokyo_2.html）を加工して作成しています
+- 標準地域コードは総務省「統計に用いる標準地域コード」（https://www.soumu.go.jp/toukei_toukatsu/index/seido/9-5.htm）を加工して作成しています
 - 各資料は総務省のウェブサイト（https://www.soumu.go.jp/）のコンテンツで、ウェブサイトの利用規約（政府標準利用規約）に従います。使うときは出典と加工したことを書いてください
 - 図表には総務省以外の著作物が含まれることがあります。このデータセットは本文の文字だけを持ち、PDF の原本は保存していません
 

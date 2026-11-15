@@ -2,14 +2,15 @@
 
 1. plans: 行政事業レビューが挙げる計画・通知等の PDF を取得し、ページごとの本文の Parquet にする
 2. local_finance: 市町村別決算状況調の Excel を取得し、縦持ちの Parquet にする
-3. dbt: dbt ビルド
+3. code: 統計に用いる標準地域コードの一覧と変更の履歴を取得し、NDJSON にする
+4. dbt: dbt ビルド
 """
 
 import logging
 
 from dbt.cli.main import dbtRunner
 
-from pipelines import municipal_settlement, plans
+from pipelines import area_code, municipal_settlement, plans
 
 # dbt を読み込むとルートロガーが先に設定されるので、force で上書きする
 logging.basicConfig(level=logging.INFO, format="%(message)s", force=True)
@@ -24,13 +25,15 @@ def dbt_build():
 
 
 def main():
-    logger.info("1/3: plans (行政事業レビューが挙げる計画・通知等)")
+    logger.info("1/4: plans (行政事業レビューが挙げる計画・通知等)")
     plans.download_plans()
     plans.build_plans_parquet()
-    logger.info("2/3: local_finance (市町村別決算状況調)")
+    logger.info("2/4: local_finance (市町村別決算状況調)")
     municipal_settlement.download()
     municipal_settlement.build_parquet()
-    logger.info("3/3: dbt build")
+    logger.info("3/4: code (統計に用いる標準地域コード)")
+    area_code.build()
+    logger.info("4/4: dbt build")
     dbt_build()
 
 

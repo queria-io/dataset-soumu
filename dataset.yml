@@ -7,14 +7,18 @@ description: |-
 
   - plans: 行政事業レビューのシートが関係する計画・通知等として挙げる総務省のサイトの PDF を、ページごとの本文で持ちます。毎月、シートの URL を取り直します
   - local_finance: 市町村別決算状況調の Excel（2002 年度から）を、市区町村・年度・項目ごとの縦持ちと、表ごとの横持ちで持ちます
+  - code: 統計に用いる標準地域コードの一覧と、コードの変更（廃置分合）の履歴を持ちます
 
-  出典：行政事業レビュー見える化サイト（https://rssystem.go.jp）、総務省ウェブサイト（https://www.soumu.go.jp/）の各資料、総務省「市町村別決算状況調」を加工して作成
+  出典：行政事業レビュー見える化サイト（https://rssystem.go.jp）、総務省ウェブサイト（https://www.soumu.go.jp/）の各資料、総務省「市町村別決算状況調」、総務省「統計に用いる標準地域コード」を加工して作成
 keywords:
   - 総務省
   - 行政事業レビュー
   - 計画・通知等
   - 市町村別決算状況調
   - 地方財政
+  - 標準地域コード
+  - 市区町村コード
+  - 廃置分合
 homepage: https://github.com/queria-io/dataset-soumu
 language: ja
 
@@ -28,6 +32,8 @@ sources:
     path: https://www.soumu.go.jp/
   - title: 市町村別決算状況調（総務省）
     path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
+  - title: 統計に用いる標準地域コード（総務省）
+    path: https://www.soumu.go.jp/toukei_toukatsu/index/seido/9-5.htm
 
 contributors:
   - title: 総務省
@@ -42,8 +48,10 @@ schemas:
     title: 計画・通知等
   - name: local_finance
     title: 地方財政
+  - name: code
+    title: 統計に用いる標準地域コード
 
 annotations:
   queria:
-    themes: [government_finance]
+    themes: [government_finance, land_climate]
     cover: 🏛️
