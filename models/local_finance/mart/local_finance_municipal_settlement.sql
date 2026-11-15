@@ -5,7 +5,7 @@
 SELECT
     s.fiscal_year,
     s.entity_group,
-    r.area_code,
+    left(r.lg_code, 5) AS area_code,
     r.lg_code,
     r.pref_name,
     r.entity_name,

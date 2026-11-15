@@ -1,7 +1,7 @@
 """総務省のデータパイプライン。
 
 1. plans: 行政事業レビューが挙げる計画・通知等の PDF を取得し、ページごとの本文の Parquet にする
-2. local_finance: 市町村別決算状況調の Excel を取得し、縦持ちの Parquet にする
+2. local_finance: 市町村別決算状況調の Excel を取得し、セルの Parquet にする
 3. code: 統計に用いる標準地域コードの一覧と変更の履歴を取得し、NDJSON にする
 4. dbt: dbt ビルド
 """
