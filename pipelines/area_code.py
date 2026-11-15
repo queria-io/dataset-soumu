@@ -22,7 +22,7 @@ from urllib.parse import urljoin
 
 import xlrd
 
-from shared.fetch import fetch
+from shared.fetch import fetch, write_atomic
 
 logger = logging.getLogger("pipelines")
 
@@ -77,11 +77,20 @@ def split_code_name(cell: object) -> tuple[str | None, str | None]:
     return (m.group(1), m.group(2).strip() or None) if m else (None, s)
 
 
+def _is_heading(cell: str | None) -> bool:
+    """旧コードの欄にある、コードでもよみがなでもない見出し（「参考：支庁から…」など）か。"""
+    return bool(cell) and re.match(r"[\d（(]", cell) is None
+
+
 def _fill_down(rows: Iterable[list[str | None]]) -> Iterator[tuple]:
-    """都道府県・改正事由・施行年月日は 1 つの改正の先頭行にだけあるので、下の行へ送る。"""
+    """都道府県・改正事由・施行年月日は 1 つの改正の先頭行にだけあるので、下の行へ送る。
+
+    旧コードの欄の見出しは、その下に並ぶ変更の改正事由にする。前の改正の事由を送らない。
+    """
     pref = reason = date = None
     for c0, c1, c2, c3, c4 in rows:
-        pref, reason, date = c0 or pref, c3 or reason, (c4[:10] if c4 else date)
+        pref, date = c0 or pref, (c4[:10] if c4 else date)
+        reason = c3 or (c1 if _is_heading(c1) else reason)
         yield pref, c1, c2, reason, date
 
 
@@ -138,19 +147,16 @@ def _change_rows(content: bytes) -> list[list[str | None]]:
 
 
 def _write_ndjson(records: list[dict], path: Path) -> None:
-    path.write_text(
-        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records),
-        encoding="utf-8",
-    )
+    write_atomic(path, "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records))
 
 
 def build(out_dir: Path = OUT_DIR) -> None:
     """コード一覧と変更の履歴を取得し、NDJSON にする。"""
-    html = fetch(INDEX_URL, user_agent=USER_AGENT).decode("shift_jis", errors="replace")
+    html = fetch(INDEX_URL, user_agent=USER_AGENT).decode("cp932", errors="replace")
     csv_url, xls_url = resolve_links(html)
     logger.info(f"  downloading {csv_url}")
     municipality = parse_municipality(
-        fetch(csv_url, user_agent=USER_AGENT).decode("shift_jis")
+        fetch(csv_url, user_agent=USER_AGENT).decode("cp932")
     )
     logger.info(f"  downloading {xls_url}")
     pref_codes = {r["pref_name"]: r["pref_code"] for r in municipality if r["is_prefecture"]}
