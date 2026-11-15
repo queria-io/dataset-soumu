@@ -41,6 +41,9 @@ fields:
   - name: reason
     title: 改正事由（合併・編入等の内容）
     description: 改正事由の原文（「熊毛郡上屋久町、屋久町を合併し、屋久島町を新設」など）。北海道の支庁から振興局への名称変更（2010年4月1日）の行は、元の表の見出し「参考：支庁から総合振興局又は振興局への変更」が入る。合併・編入・名称変更のどれかは、この文面から読み取る
+  - name: source_sha256
+    title: 元のファイルの sha256
+    description: source_file の sha256
 annotations:
   queria:
     themes: [land_climate]

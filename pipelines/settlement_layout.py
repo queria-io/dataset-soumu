@@ -1,6 +1,6 @@
 """市町村別決算状況調の Excel のセルから、見出し・団体の行を読む。
 
-dbt の stg（models/local_finance/stg/*.py）が raw_cells・raw_merged_cells・raw_files を渡して呼ぶ。
+dbt の stg（models/local_finance/stg/*.py）が raw_cells・raw_merged_cells・raw_source_file を渡して呼ぶ。
 年度によって列の並び・見出し・ファイルの分け方が違うので、表の見出しの行から列ごとの項目名を作る。
 """
 
@@ -291,19 +291,18 @@ def parse(grid: list[list], merged: dict, file: dict, category: str | None) -> d
 
     return {
         "category": category,
-        "sheet": (file["url"], file["page_url"], file["fiscal_year"], category, table, top + 1, first + 1, name_col + 1, code_col + 1 if code_col is not None else None),
+        "sheet": (file["sha256"], file["fiscal_year"], category, table, top + 1, first + 1, name_col + 1, code_col + 1 if code_col is not None else None),
         "columns": [
-            (file["url"], c + 1, heading, *item_name(heading), unit) for c, (heading, unit) in columns.items()
+            (file["sha256"], c + 1, heading, *item_name(heading), unit) for c, (heading, unit) in columns.items()
         ],
-        "rows": [(file["url"], r + 1, pref, name, code) for r, pref, name, code in entities],
+        "rows": [(file["sha256"], r + 1, pref, name, code) for r, pref, name, code in entities],
     }
 
 
 # stg のテーブルの列。行番号・列番号は Excel と同じ 1 始まり
 COLUMNS = {
     "sheets": {
-        "source_url": "VARCHAR",
-        "page_url": "VARCHAR",
+        "source_sha256": "VARCHAR",
         "fiscal_year": "INTEGER",
         "entity_group": "VARCHAR",
         "section": "VARCHAR",
@@ -313,7 +312,7 @@ COLUMNS = {
         "code_col": "INTEGER",
     },
     "columns": {
-        "source_url": "VARCHAR",
+        "source_sha256": "VARCHAR",
         "col_no": "INTEGER",
         "heading": "VARCHAR",
         "item": "VARCHAR",
@@ -321,8 +320,8 @@ COLUMNS = {
         "unit": "VARCHAR",
     },
     "rows": {
-        "source_url": "VARCHAR",
-        "row_no": "INTEGER",
+        "source_sha256": "VARCHAR",
+        "source_row": "INTEGER",
         "pref_name": "VARCHAR",
         "entity_name": "VARCHAR",
         "lg_code": "VARCHAR",
@@ -331,30 +330,29 @@ COLUMNS = {
 
 
 def parse_cells(cells, merged_cells, files) -> dict[str, list[tuple]]:
-    """raw_cells・raw_merged_cells・raw_files（dbt の raw）から、Excel ごとに parse を流す。
+    """raw_cells・raw_merged_cells・raw_source_file（dbt の raw）から、Excel ごとに parse を流す。
 
-    cells は (source_url, row_no, col_no, value)、merged_cells は (source_url, first_row, last_row,
-    first_col, last_col)、files は (file_no, url, page_url, fiscal_year, link_text) の行。番号は 1 始まり。
+    cells は (source_sha256, source_row, col_no, value)、merged_cells は (source_sha256, first_row,
+    last_row, first_col, last_col)、files は (file_no, sha256, fiscal_year) の行。番号は 1 始まり。
     """
-    by_url: dict[str, dict[tuple[int, int], str]] = {}
-    for url, r, c, value in cells:
-        by_url.setdefault(url, {})[r - 1, c - 1] = value
-    ranges_by_url: dict[str, list[Range]] = {}
-    for url, r0, r1, c0, c1 in merged_cells:
-        ranges_by_url.setdefault(url, []).append((r0 - 1, r1, c0 - 1, c1))
+    by_file: dict[str, dict[tuple[int, int], str]] = {}
+    for sha256, r, c, value in cells:
+        by_file.setdefault(sha256, {})[r - 1, c - 1] = value
+    ranges_by_file: dict[str, list[Range]] = {}
+    for sha256, r0, r1, c0, c1 in merged_cells:
+        ranges_by_file.setdefault(sha256, []).append((r0 - 1, r1, c0 - 1, c1))
     out = {"sheets": [], "columns": [], "rows": []}
     category = None
-    for _, url, page_url, year, link_text in sorted(files):
-        values = by_url.get(url, {})
-        ranges = sorted(ranges_by_url.get(url, []))
+    for _, sha256, year in sorted(files):
+        values = by_file.get(sha256, {})
+        ranges = sorted(ranges_by_file.get(sha256, []))
         height = max([r for r, _ in values] + [r1 - 1 for _, r1, _, _ in ranges], default=-1) + 1
         width = max([c for _, c in values] + [c1 - 1 for _, _, _, c1 in ranges], default=-1) + 1
         grid = [[values.get((r, c)) for c in range(width)] for r in range(height)]
         merged = {
             (r, c): (r0, c0) for r0, r1, c0, c1 in ranges for r in range(r0, r1) for c in range(c0, c1)
         }
-        file = {"url": url, "page_url": page_url, "fiscal_year": year, "link_text": link_text}
-        sheet = parse(grid, merged, file, category)
+        sheet = parse(grid, merged, {"sha256": sha256, "fiscal_year": year}, category)
         category = sheet["category"]
         out["sheets"].append(sheet["sheet"])
         out["columns"].extend(sheet["columns"])

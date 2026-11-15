@@ -3,8 +3,9 @@
 -- セルの値の前後の空白を除き、数値として読める値を数値にする。
 -- 数値は全角の数字・符号と空白を正規化し、△・▲ を負の符号として読む。
 SELECT
-    source_url,
-    row_no,
+    source_sha256,
+    source_sheet,
+    source_row,
     col_no,
     trim(value, ' 　') AS value,
     try_cast(

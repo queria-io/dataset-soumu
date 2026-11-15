@@ -18,7 +18,8 @@ SELECT
     CASE
         WHEN s.area_kind = 'ward' THEN p.area_code
         WHEN s.area_kind IN ('municipality', 'designated_city') THEN s.area_code
-    END AS municipality_code
+    END AS municipality_code,
+    s.source_sha256
 FROM {{ ref('code_stg_municipality') }} s
 LEFT JOIN {{ ref('code_stg_municipality') }} p
     ON s.area_kind = 'ward'

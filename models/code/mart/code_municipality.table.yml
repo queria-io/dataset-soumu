@@ -57,6 +57,9 @@ fields:
     title: 所属する市区町村の標準地域コード（行政区は所属市、市区町村は自分自身、集計行は NULL）
     description: 所属する市区町村の標準地域コード。行政区の行は所属する政令市のコード、市区町村の行は自分自身、都道府県・郡などの集計行は NULL。行政区単位のデータを市単位に集計するときに使う
     annotations: { queria: { semantic: { role: entity, name: city } } }
+  - name: source_sha256
+    title: 元のファイルの sha256
+    description: source_file の sha256
 annotations:
   queria:
     themes: [land_climate]

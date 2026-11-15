@@ -2,7 +2,8 @@
 
 年度ごとのページ（https://www.soumu.go.jp/iken/kessan_jokyo_2.html から辿る）に、
 都市別・町村別の (1) 概況 (2) 歳入内訳 (3) 目的別歳出内訳 (4) 性質別歳出内訳 (5) 地方債現在高等 の
-Excel がある。ここでは Excel の空でないセルと結合セルの範囲を、手を加えずに表にする。
+Excel がある。ここでは取得したファイルの一覧（source_file）と、Excel の空でないセルと
+結合セルの範囲を、手を加えずに表にする。
 見出しから項目名を作り、団体の行を見つけるのは dbt の stg（pipelines/settlement_layout.py）。
 
 出典: 総務省「市町村別決算状況調」 https://www.soumu.go.jp/iken/kessan_jokyo_2.html
@@ -22,7 +23,7 @@ import duckdb
 import openpyxl
 import xlrd
 
-from shared.fetch import fetch, write_atomic
+from shared.fetch import fetch, fetch_file, write_atomic
 
 logger = logging.getLogger("pipelines")
 
@@ -81,15 +82,27 @@ def local_path(url: str) -> Path:
 
 
 def download() -> None:
+    """Excel を取得し、取得したファイルの一覧を source_file.json に書く。
+
+    前回の一覧の行があり手元にファイルがあれば条件付き GET を送り、変わっていなければ取得しない。
+    """
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    files = list_files()
-    for file in files:
-        path = local_path(file["url"])
-        # 書きかけのファイルが取得済みとして残らないよう、一時ファイルから置き換える
-        if not path.exists():
-            write_atomic(path, get(file["url"]))
-    write_atomic(RAW_DIR / "files.json", json.dumps(files, ensure_ascii=False, indent=1))
-    logger.info("municipal_settlement: %d ファイル", len(files))
+    record = RAW_DIR / "source_file.json"
+    previous = (
+        {row["url"]: row for row in json.loads(record.read_text(encoding="utf-8"))}
+        if record.exists()
+        else {}
+    )
+    rows = []
+    for file_no, file in enumerate(list_files(), 1):
+        time.sleep(INTERVAL)
+        fetched = fetch_file(
+            file["url"], local_path(file["url"]), previous=previous.get(file["url"]), user_agent=USER_AGENT
+        )
+        # 一覧の並び（file_no）は、区分の書かれていないシートが前のファイルの区分を引き継ぐのに使う
+        rows.append({**fetched, **file, "file_no": file_no})
+    write_atomic(record, json.dumps(rows, ensure_ascii=False, indent=1))
+    logger.info("municipal_settlement: %d ファイル", len(rows))
 
 
 # ---- Excel を読む ----
@@ -97,20 +110,22 @@ def download() -> None:
 
 def read_grid(
     content: bytes, url: str
-) -> tuple[list[list], list[tuple[int, int, int, int]]]:
-    """最初のシートのセルの値と、結合セルの範囲（行の始まり・終わりの次・列の始まり・終わりの次、
-    0 始まり）を返す。"""
+) -> tuple[str, list[list], list[tuple[int, int, int, int]]]:
+    """最初のシートの名前とセルの値と、結合セルの範囲（行の始まり・終わりの次・列の始まり・
+    終わりの次、0 始まり）を返す。"""
     if url.lower().endswith(".xlsx"):
         sheet = openpyxl.load_workbook(io.BytesIO(content), data_only=True).worksheets[0]
         grid = [list(row) for row in sheet.iter_rows(values_only=True)]
         ranges = [
             (r.min_row - 1, r.max_row, r.min_col - 1, r.max_col) for r in sheet.merged_cells.ranges
         ]
+        name = sheet.title
     else:
         sheet = xlrd.open_workbook(file_contents=content, formatting_info=True).sheet_by_index(0)
         grid = [sheet.row_values(i) for i in range(sheet.nrows)]
         ranges = sheet.merged_cells
-    return grid, sorted(ranges)
+        name = sheet.name
+    return name, grid, sorted(ranges)
 
 
 def raw_text(value) -> str | None:
@@ -122,30 +137,50 @@ def raw_text(value) -> str | None:
     return str(value)
 
 
+# 取得したファイルの一覧（source_file.json）の列
+SOURCE_FILE = {
+    "file_no": "INTEGER",
+    "url": "VARCHAR",
+    "page_url": "VARCHAR",
+    "sha256": "VARCHAR",
+    "bytes": "BIGINT",
+    "media_type": "VARCHAR",
+    "retrieved_at": "VARCHAR",
+    "etag": "VARCHAR",
+    "last_modified": "VARCHAR",
+    "fiscal_year": "INTEGER",
+    "link_text": "VARCHAR",
+}
+
 # Parquet にするテーブルと列。行番号・列番号は Excel と同じ 1 始まり
 TABLES_OUT = {
-    "raw_cells": {"source_url": "VARCHAR", "row_no": "INTEGER", "col_no": "INTEGER", "value": "VARCHAR"},
+    "raw_cells": {
+        "source_sha256": "VARCHAR",
+        "source_sheet": "VARCHAR",
+        "source_row": "INTEGER",
+        "col_no": "INTEGER",
+        "value": "VARCHAR",
+    },
     "raw_merged_cells": {
-        "source_url": "VARCHAR",
+        "source_sha256": "VARCHAR",
+        "source_sheet": "VARCHAR",
         "first_row": "INTEGER",
         "last_row": "INTEGER",
         "first_col": "INTEGER",
         "last_col": "INTEGER",
     },
-    # files.json の並び（file_no）は、区分の書かれていないシートが前のファイルの区分を引き継ぐのに使う
-    "raw_files": {
-        "file_no": "INTEGER",
-        "url": "VARCHAR",
-        "page_url": "VARCHAR",
-        "fiscal_year": "INTEGER",
-        "link_text": "VARCHAR",
-    },
 }
 
 
 def build_parquet() -> None:
-    files = json.loads((RAW_DIR / "files.json").read_text(encoding="utf-8"))
+    record = RAW_DIR / "source_file.json"
+    files = json.loads(record.read_text(encoding="utf-8"))
     PARQUET_DIR.mkdir(parents=True, exist_ok=True)
+    spec = ", ".join(f"'{column}': '{type_}'" for column, type_ in SOURCE_FILE.items())
+    duckdb.execute(
+        f"COPY (SELECT * FROM read_json('{record}', format = 'array', columns = {{{spec}}}))"
+        f" TO '{PARQUET_DIR / 'local_finance_raw_source_file.parquet'}' (FORMAT parquet)"
+    )
     # セルの数が 1 千万を超えるので、CSV に書いてから DuckDB で Parquet にする
     paths = {name: RAW_DIR / f"{name}.csv" for name in TABLES_OUT}
     with contextlib.ExitStack() as stack:
@@ -153,19 +188,17 @@ def build_parquet() -> None:
             name: csv.writer(stack.enter_context(path.open("w", newline="", encoding="utf-8")))
             for name, path in paths.items()
         }
-        for file_no, file in enumerate(files, 1):
-            grid, ranges = read_grid(local_path(file["url"]).read_bytes(), file["url"])
+        for file in files:
+            sha256 = file["sha256"]
+            sheet, grid, ranges = read_grid(local_path(file["url"]).read_bytes(), file["url"])
             writers["raw_cells"].writerows(
-                (file["url"], r + 1, c + 1, text)
+                (sha256, sheet, r + 1, c + 1, text)
                 for r, row in enumerate(grid)
                 for c, value in enumerate(row)
                 if (text := raw_text(value)) is not None
             )
             writers["raw_merged_cells"].writerows(
-                (file["url"], r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges
-            )
-            writers["raw_files"].writerow(
-                (file_no, file["url"], file["page_url"], file["fiscal_year"], file["link_text"])
+                (sha256, sheet, r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges
             )
     for name, columns in TABLES_OUT.items():
         spec = ", ".join(f"'{column}': '{type_}'" for column, type_ in columns.items())

@@ -23,16 +23,18 @@
 
 | テーブル | 内容 |
 | --- | --- |
-| `local_finance.municipal_settlement` | 1 行が 1 団体・1 年度・1 項目の縦持ち。項目名・単位・値・出典の Excel の URL とセルの位置 |
+| `local_finance.municipal_settlement` | 1 行が 1 団体・1 年度・1 項目の縦持ち。項目名・単位・値・出典の Excel の URL・sha256 とセルの位置 |
 | `local_finance.municipal_overview` | 概況の横持ち（人口・財政力指数・経常収支比率・実質収支など） |
 | `local_finance.municipal_revenue` | 歳入内訳の横持ち |
 | `local_finance.municipal_expenditure_by_purpose` | 目的別歳出内訳の横持ち |
 | `local_finance.municipal_expenditure_by_nature` | 性質別歳出内訳の横持ち |
 | `local_finance.municipal_debt` | 地方債現在高等の横持ち |
 | `local_finance.municipal_town_expenditure` | 2006 年度までの町村の歳出内訳の横持ち |
+| `local_finance.source_file` | 取得した Excel の一覧。URL・掲載ページ・sha256・バイト数・取得日時 |
 | `local_finance.raw_cells` | Excel の空でないセルの値（文字のまま） |
 | `local_finance.raw_merged_cells` | Excel の結合セルの範囲 |
-| `local_finance.raw_files` | 取得した Excel の一覧 |
+| `local_finance.raw_source_file` | 取得した Excel の一覧（取得の記録） |
+| `local_finance.stg_source_file` | 取得した Excel の一覧の取得日時を日時の型にしたもの |
 | `local_finance.stg_sheets` | Excel ごとの年度・区分・表と、見出しと団体の行・列の位置 |
 | `local_finance.stg_columns` | Excel の列ごとの項目名と単位 |
 | `local_finance.stg_rows` | Excel の団体の行と、都道府県名・団体名・団体コード |
@@ -40,10 +42,10 @@
 
 - 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています。国勢調査人口と産業構造は見出しの国勢調査の年を外して `census_year` に置き（`国勢調査人口/令2.10.1` → `国勢調査人口`、2020）、「補てん」は「補塡」に統一しています。元の見出しは `stg_columns.heading` にあります。横持ちのテーブルでは、この項目名が列名です
 - 項目は年度によって追加・廃止・改称されます。横持ちのテーブルでは、その年度の Excel に無い項目は NULL です
-- `municipal_settlement` の `row_no`・`col_no` は元の Excel のセルの位置で、`raw_cells` と同じ番号です
+- `municipal_settlement` の `source_sha256`・`source_sheet`・`row_no`・`col_no` は元の Excel のファイル・シート・セルの位置です。ファイルは `source_file` の `sha256` で引けます
 - 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください。その年度のコードが要るときは、下の例のように `codh.city.municipality`（歴史的行政区域）と有効期間で結合します
 - 都道府県計・全国計などの合計の行は、縦持ちと横持ちのテーブルには入っていません
-- 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得し、セルと結合セルの範囲をそのまま raw にします。見出しから項目名を作り団体の行を見つける処理は `pipelines/settlement_layout.py` にあり、dbt の Python モデル（`models/local_finance/stg/*.py`）が raw から呼びます
+- 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得し、前回の取得から変わっていない（`ETag`・`Last-Modified` が同じ）ファイルは取得し直しません。セルと結合セルの範囲はそのまま raw にします。見出しから項目名を作り団体の行を見つける処理は `pipelines/settlement_layout.py` にあり、dbt の Python モデル（`models/local_finance/stg/*.py`）が raw から呼びます
 
 ```sql
 -- 札幌市の地方税と地方債（千円）
@@ -76,10 +78,12 @@ LEFT JOIN codh.city.municipality AS m
 | --- | --- |
 | `code.municipality` | 1 行が 1 つの標準地域コード（5 桁）。現行の都道府県・郡・政令指定都市・行政区・市区町村 |
 | `code.municipality_change` | 1 行が 1 件のコードの変更（合併・編入・区の再編など）。2007 年 4 月 2 日以降 |
+| `code.source_file` | 取得した CSV と Excel の一覧。URL・掲載ページ・sha256・バイト数・取得日時 |
 
 - 市区町村を数えるときは `is_municipality` で絞ります（政令指定都市は 1 団体、東京 23 区は 23 団体）
 - 行政区の行の `municipality_code` は所属する政令指定都市のコードです。区ごとのデータを市にまとめるときに使います
 - 全国地方公共団体コード（6 桁）の先頭 5 桁が標準地域コードです
+- 取得は `pipelines/area_code.py` で行い、CSV の行と Excel の行をそのまま raw にします。列名の付け替えと、Excel の改正の先頭行にだけある都道府県・改正事由・施行年月日を下の行へ送る処理は dbt の stg で行います
 
 ```sql
 SELECT area_code, pref_name, municipality_name

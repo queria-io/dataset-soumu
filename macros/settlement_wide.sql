@@ -7,7 +7,7 @@ SELECT
     c.item,
     CASE WHEN bool_or(c.census_year IS NOT NULL) THEN split_part(c.item, '/', 1) END AS census_group
 FROM {{ ref('local_finance_stg_columns') }} AS c
-JOIN {{ ref('local_finance_stg_sheets') }} AS s USING (source_url)
+JOIN {{ ref('local_finance_stg_sheets') }} AS s USING (source_sha256)
 WHERE s.section = '{{ section }}'
 GROUP BY c.item
 ORDER BY max(s.fiscal_year) DESC, arg_max(c.col_no, s.fiscal_year), c.item

@@ -2,7 +2,24 @@
 
 -- district_name が NULL の行（郡に属さない市と特別区）は LIKE が NULL になり、
 -- 階層区分の CASE では最後の municipality に入る。
+WITH renamed AS (
+    SELECT
+        source_sha256,
+        source_row,
+        "tiiki-code" AS area_code,
+        "ken-code" AS pref_code,
+        "ken-name" AS pref_name,
+        -- sityouson-name1 は郡・振興局・政令市、sityouson-name3 は市区町村。sityouson-name2 は使われていない
+        {{ clean_text('"sityouson-name1"') }} AS district_name,
+        {{ clean_text('"sityouson-name3"') }} AS municipality_name,
+        {{ clean_text('yomigana') }} AS yomigana,
+        "sityouson-code" = '000' AS is_prefecture
+    FROM {{ ref('code_raw_municipality') }}
+)
+
 SELECT
+    source_sha256,
+    source_row,
     area_code,
     pref_code,
     pref_name,
@@ -24,4 +41,4 @@ SELECT
             THEN district_name
     END AS subprefecture_name,
     CASE WHEN district_name LIKE '%市' THEN district_name END AS designated_city_name
-FROM {{ ref('code_raw_municipality') }}
+FROM renamed
