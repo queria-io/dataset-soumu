@@ -17,9 +17,31 @@
 - 全文検索の索引は持っていません。`plans.pages` の `text` を検索してください
 - 取得と Parquet 化は dataset-shared の `review_plans.py` で行います。PDF は 1 秒に 1 回の頻度で取得します
 
+## 地方財政（local_finance）
+
+総務省の[市町村別決算状況調](https://www.soumu.go.jp/iken/kessan_jokyo_2.html)の Excel（2002 年度から最新の年度まで、都市別・町村別の概況・歳入内訳・目的別歳出内訳・性質別歳出内訳・地方債現在高等）を、1 行が 1 団体・1 年度・1 項目の縦持ちにしています。
+
+| テーブル | 内容 |
+| --- | --- |
+| `local_finance.municipal_settlement` | 1 行が 1 団体・1 年度・1 項目。項目名・単位・値・出典の Excel の URL |
+
+- 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています
+- 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください
+- 都道府県計・全国計などの合計の行は入っていません
+- 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得します
+
+```sql
+-- 札幌市の歳入総額と地方税（千円）
+SELECT fiscal_year, item, value
+FROM soumu.local_finance.municipal_settlement
+WHERE pref_name = '北海道' AND entity_name = '札幌市' AND item IN ('歳入総額', '地方税')
+ORDER BY fiscal_year, item;
+```
+
 ## 出典と利用条件
 
 - 行政事業レビュー見える化サイト（https://rssystem.go.jp）のレビューシートの URL を使っています
+- 市町村別決算状況調は総務省「市町村別決算状況調」（https://www.soumu.go.jp/iken/kessan_jokyo_2.html）を加工して作成しています
 - 各資料は総務省のウェブサイト（https://www.soumu.go.jp/）のコンテンツで、ウェブサイトの利用規約（政府標準利用規約）に従います。使うときは出典と加工したことを書いてください
 - 図表には総務省以外の著作物が含まれることがあります。このデータセットは本文の文字だけを持ち、PDF の原本は保存していません
 
