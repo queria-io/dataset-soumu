@@ -26,7 +26,7 @@
 | `local_finance.municipal_settlement` | 1 行が 1 団体・1 年度・1 項目。項目名・単位・値・出典の Excel の URL |
 
 - 年度によって Excel の列の並びと見出しが違うので、見出しを親から順に「/」でつないだ項目名（`item`）にしています。見出しの番号（一・1・(1)・(ア)）と「内訳」は除いています
-- 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください
+- 団体コード（`lg_code`）は Excel に団体コードがある 2011 年度から入っています。2010 年度までは都道府県名と団体名で団体を特定してください。その年度のコードが要るときは、下の例のように `codh.city.municipality`（歴史的行政区域）と有効期間で結合します
 - 都道府県計・全国計などの合計の行は入っていません
 - 取得は `pipelines/municipal_settlement.py` で行います。Excel は 1 秒に 1 回の頻度で取得します
 
@@ -37,6 +37,22 @@ FROM soumu.local_finance.municipal_settlement
 WHERE pref_name = '北海道' AND entity_name = '札幌市' AND item IN ('歳入総額', '地方税')
 ORDER BY fiscal_year, item;
 ```
+
+```sql
+-- 2010 年度までの行に、その年度末（3 月 31 日）に有効だった団体コードを付ける
+SELECT s.fiscal_year, s.pref_name, s.entity_name, coalesce(s.lg_code, m.lg_code) AS lg_code, s.item, s.value
+FROM soumu.local_finance.municipal_settlement AS s
+LEFT JOIN codh.city.municipality AS m
+  ON s.lg_code IS NULL
+ AND m.prefecture = s.pref_name
+ AND m.full_name = s.entity_name
+ AND NOT (m.suffix = '区' AND m.county_or_city IS NOT NULL)  -- 政令指定都市の区を除く
+ AND m.valid_from <= make_date(s.fiscal_year + 1, 3, 31)
+ AND coalesce(m.valid_to > make_date(s.fiscal_year + 1, 3, 31), true)
+WHERE s.item = '歳入総額';
+```
+
+同じ都道府県に同じ名前の町村があった年度は、Excel の団体名に郡名が付いている（「一宮町・宍粟」）ので、この結合では当たりません。
 
 ## 出典と利用条件
 
