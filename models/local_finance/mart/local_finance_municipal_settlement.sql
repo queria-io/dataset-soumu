@@ -26,6 +26,7 @@ SELECT
     s.section,
     c.item,
     c.unit,
+    c.census_year,
     x.number AS value,
     CASE WHEN x.number IS NULL THEN translate(x.value, '－', '-') END AS value_text,
     s.source_url,

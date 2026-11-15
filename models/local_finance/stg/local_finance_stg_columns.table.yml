@@ -2,7 +2,7 @@ schema: local_finance
 name: stg_columns
 title: 市町村別決算状況調 Excel の列の項目
 description: |-
-  Excel の値の列ごとの項目名と単位です。見出しを親から順に「/」でつないでいます。
+  Excel の値の列ごとの見出し・項目名・単位です。見出しは親から順に「/」でつないでいます。項目名は、見出しから国勢調査の年を外し、表記ゆれ（補てん→補塡）を統一したものです。
 annotations: { queria: { published: false } }
 primary_key: [source_url, col_no]
 sources:
@@ -12,7 +12,14 @@ fields:
     title: 出典の Excel の URL
   - name: col_no
     title: 列番号
+  - name: heading
+    title: 見出し
+    description: Excel の見出しを親から順に「/」でつないだもの
   - name: item
     title: 項目
+    description: 年度をまたいで同じ名前になるようにした項目名。国勢調査人口/令2.10.1 は 国勢調査人口 になります
+  - name: census_year
+    title: 国勢調査の年
+    description: 国勢調査人口・産業構造の値の元になった国勢調査の年（西暦）。見出しから外した年です。それ以外の項目は NULL
   - name: unit
     title: 単位

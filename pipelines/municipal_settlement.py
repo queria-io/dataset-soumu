@@ -323,6 +323,27 @@ def numbered_columns(grid: list[list], merged: dict, rows: range, cols: list[int
     return columns
 
 
+# 国勢調査の年が入った見出し。年を外した項目名と、値の元になった国勢調査の年（西暦）にする
+ERA = {"令": 2018, "令和": 2018, "平": 1988, "平成": 1988}
+CENSUS = (
+    # 国勢調査人口/令2.10.1
+    (re.compile(r"^(国勢調査人口)/(令|平)(\d+)\.10\.1$"), lambda m: (m[1], ERA[m[2]] + int(m[3]))),
+    # 国勢調査人口/対平27増減率（前回の国勢調査からの増減率。値は 5 年後の国勢調査のもの）
+    (re.compile(r"^(国勢調査人口)/対(平)(\d+)増減率$"), lambda m: (f"{m[1]}/増減率", ERA[m[2]] + int(m[3]) + 5)),
+    # 産業構造(令和2年国調)/第1次。元号の無いものは平成
+    (re.compile(r"^(産業構造)\((令和|平成)?(\d+)年国調\)(/.+)$"), lambda m: (m[1] + m[4], ERA[m[2] or "平成"] + int(m[3]))),
+)
+
+
+def item_name(heading: str) -> tuple[str, int | None]:
+    """見出しから、年度をまたいで同じ名前になる項目名と国勢調査の年を作る。"""
+    heading = heading.replace("補てん", "補塡")
+    for pattern, convert in CENSUS:
+        if m := pattern.match(heading):
+            return convert(m)
+    return heading, None
+
+
 def raw_text(value) -> str | None:
     """セルの値をそのまま文字にする。整数の浮動小数点数は小数点を付けない。空のセルは None。"""
     if value is None or value == "":
@@ -393,7 +414,9 @@ def parse(grid: list[list], merged: dict, file: dict, category: str | None) -> d
     return {
         "category": category,
         "sheet": (file["url"], file["page_url"], file["fiscal_year"], category, table, top + 1, first + 1, name_col + 1, code_col + 1 if code_col is not None else None),
-        "columns": [(file["url"], c + 1, item, unit) for c, (item, unit) in columns.items()],
+        "columns": [
+            (file["url"], c + 1, heading, *item_name(heading), unit) for c, (heading, unit) in columns.items()
+        ],
         "rows": [(file["url"], r + 1, pref, name, code) for r, pref, name, code in entities],
     }
 
@@ -419,7 +442,14 @@ TABLES_OUT = {
         "name_col": "INTEGER",
         "code_col": "INTEGER",
     },
-    "stg_columns": {"source_url": "VARCHAR", "col_no": "INTEGER", "item": "VARCHAR", "unit": "VARCHAR"},
+    "stg_columns": {
+        "source_url": "VARCHAR",
+        "col_no": "INTEGER",
+        "heading": "VARCHAR",
+        "item": "VARCHAR",
+        "census_year": "INTEGER",
+        "unit": "VARCHAR",
+    },
     "stg_rows": {
         "source_url": "VARCHAR",
         "row_no": "INTEGER",
