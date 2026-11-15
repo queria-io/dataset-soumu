@@ -22,7 +22,7 @@ import duckdb
 import openpyxl
 import xlrd
 
-from shared.fetch import fetch
+from shared.fetch import fetch, write_atomic
 
 logger = logging.getLogger("pipelines")
 
@@ -98,9 +98,10 @@ def download() -> None:
     files = list_files()
     for file in files:
         path = local_path(file["url"])
+        # 書きかけのファイルが取得済みとして残らないよう、一時ファイルから置き換える
         if not path.exists():
-            path.write_bytes(get(file["url"]))
-    (RAW_DIR / "files.json").write_text(json.dumps(files, ensure_ascii=False, indent=1))
+            write_atomic(path, get(file["url"]))
+    write_atomic(RAW_DIR / "files.json", json.dumps(files, ensure_ascii=False, indent=1))
     logger.info("municipal_settlement: %d ファイル", len(files))
 
 
@@ -169,8 +170,9 @@ def value(raw) -> tuple[float | None, str | None]:
 def header_texts(grid: list[list], merged: dict, rows: range, cols: range) -> dict[tuple[int, int], str]:
     """見出しのセルの文字。結合セルは左上の文字を使う。
 
-    結合していない空のセルは、この列の見出しがそれより下の行から始まるときに、左の列の文字を引き継ぐ
-    （古い年度の Excel は、親の見出しを結合せずに左端の列だけに書いている）。
+    結合していない空のセルは、この列の見出しがそれより下の行から始まり、左の列の見出しにも下の行に
+    子の見出しがあるときに、左の列の文字を引き継ぐ（古い年度の Excel は、親の見出しを結合せずに
+    左端の列だけに書いている）。子の見出しの無い左の列（「面積」など）は親ではないので引き継がない。
     """
     texts = {}
     for r in rows:
@@ -187,6 +189,7 @@ def header_texts(grid: list[list], merged: dict, rows: range, cols: range) -> di
                 and texts[r, c - 1]
                 and not any(texts[r2, c] for r2 in rows if r2 < r)
                 and any(named(r2, c) for r2 in rows if r2 > r)
+                and any(named(r2, c - 1) for r2 in rows if r2 > r)
             ):
                 texts[r, c] = texts[r, c - 1]
     return texts
@@ -197,7 +200,8 @@ UNIT = re.compile(r"\((人|%|km2|千円|円)\)")
 NUMBERING = re.compile(r"^(?:[一二三四五六七八九十]+|\d+|[ア-ン]|\([\dア-ン]+\)|\([A-Z]\)[-+()A-Z]*)$")
 # 「一地方税」「1普通交付税」「(ア)給料」の番号。「一時借入金」の「一」は番号ではない
 LEADING_NUMBER = re.compile(r"^(?:[一二三四五六七八九十]+(?!時)|\d+(?=[^\d.年月日])|\([\dア-ン]+\))")
-AS_OF = re.compile(r"\(?[^()]*\d+\.\d+(?:\.\d+)?現在\)?")
+# 「(平14.10.1現在)」「(平15.3.31)」の時点。括弧の無い「平12.10.1」は国勢調査人口の列の名前なので残す
+AS_OF = re.compile(r"\(?[^()]*\d+\.\d+(?:\.\d+)?現在\)?|\([^()]*\d+\.\d+\.\d+\)")
 
 
 def header_part(text: str) -> tuple[str, str | None]:
@@ -213,7 +217,7 @@ def header_part(text: str) -> tuple[str, str | None]:
 FORMULA = re.compile(r"(?:\([A-Z]\)[-+]?)+$")
 # 1 つの見出しが改行で 2 つのセルに分かれているときの、前のセルの終わりと次のセルの始まり
 CONTINUED = re.compile(r"(?:^うち|を|越|及び|繰上|共済|長等)$")
-CONTINUING = re.compile(r"^(?:の|に対する|すべき|除く|\(翌年度|負担金$|事業負担金$)")
+CONTINUING = re.compile(r"^(?:の|に?対する|を除く|すべき|除く|\(翌年度|負担金$|事業負担金$|登載人口$)")
 
 
 def join_parts(parts: list[str]) -> str:
@@ -236,17 +240,21 @@ def attach_subsets(columns: Columns) -> Columns:
 
     同じ「うち人件費」が普通建設事業費と災害復旧事業費の両方の右に、同じ「内訳/新規整備」が
     補助事業費と単独事業費の両方の右にあるので、親を付けないと区別できない。
+    「左のうち/人件費」は左の列（経常収支比率）の「うち人件費」にする。
+    内数の列に単位が無いときは、左の列の単位を使う（「職員数(人)」の右の「うち一般職員」）。
     """
-    result, base = {}, None
+    result, base, base_unit = {}, None, None
     for c, (item, unit) in columns.items():
         leaf = item.rsplit("/", 1)[-1]
-        if base and leaf.startswith("うち"):
+        if base and item.startswith("左のうち/"):
+            item = f"{base}/うち{item.removeprefix('左のうち/')}"
+        elif base and leaf.startswith("うち"):
             item = f"{base}/{leaf}"
         elif base and "/内訳/" in item:
             item = f"{base}/{item.split('/内訳/', 1)[1]}"
         else:
-            base = item
-        result[c] = (item, unit)
+            base, base_unit = item, unit
+        result[c] = (item, unit or base_unit)
     return result
 
 
@@ -347,9 +355,8 @@ def parse(content: bytes, file: dict, category: str | None) -> tuple[str, list[t
     columns = {
         # 財政力指数は単位の無い指数
         c: (item, None if "財政力指数" in item else unit or sheet_unit)
-        for c, (item, unit) in columns.items()
+        for c, (item, unit) in attach_subsets(columns).items()
     }
-    columns = attach_subsets(columns)
 
     rows, pref = [], None
     for r in range(first, len(grid)):
@@ -401,12 +408,12 @@ COLUMNS = {
 
 
 def build_parquet() -> None:
-    files = json.loads((RAW_DIR / "files.json").read_text())
+    files = json.loads((RAW_DIR / "files.json").read_text(encoding="utf-8"))
     PARQUET_DIR.mkdir(parents=True, exist_ok=True)
     # 行数が 1 千万を超えるので、CSV に書いてから DuckDB で Parquet にする
     staging = RAW_DIR / "figures.csv"
     category, count = None, 0
-    with staging.open("w", newline="") as out:
+    with staging.open("w", newline="", encoding="utf-8") as out:
         writer = csv.writer(out)
         for file in files:
             category, rows = parse(local_path(file["url"]).read_bytes(), file, category)
