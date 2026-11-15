@@ -23,7 +23,7 @@ import openpyxl
 import xlrd
 
 from pipelines.settlement_layout import COLUMNS as LAYOUT_COLUMNS
-from pipelines.settlement_layout import parse_file
+from pipelines.settlement_layout import parse
 from shared.fetch import fetch, fetch_file, write_atomic
 
 logger = logging.getLogger("pipelines")
@@ -170,7 +170,7 @@ TABLES_OUT = {
         "first_col": "INTEGER",
         "last_col": "INTEGER",
     },
-    # 見出しと団体の行の読み取り（settlement_layout.parse_file）
+    # 見出しと団体の行の読み取り（settlement_layout.parse）
     **{f"raw_{name}": columns for name, columns in LAYOUT_COLUMNS.items()},
 }
 
@@ -195,17 +195,21 @@ def build_parquet() -> None:
         for file in sorted(files, key=lambda file: file["file_no"]):
             sha256 = file["sha256"]
             sheet, grid, ranges = read_grid(local_path(file["url"]).read_bytes(), file["url"])
-            cells = [
-                (r + 1, c + 1, text)
+            writers["raw_cells"].writerows(
+                (sha256, sheet, r + 1, c + 1, text)
                 for r, row in enumerate(grid)
                 for c, value in enumerate(row)
                 if (text := raw_text(value)) is not None
-            ]
-            merged = [(r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges]
-            writers["raw_cells"].writerows((sha256, sheet, *cell) for cell in cells)
-            writers["raw_merged_cells"].writerows((sha256, sheet, *rng) for rng in merged)
+            )
+            writers["raw_merged_cells"].writerows(
+                (sha256, sheet, r0 + 1, r1, c0 + 1, c1) for r0, r1, c0, c1 in ranges
+            )
+            # 結合セルの各セルから左上のセルへの対応
+            merged = {
+                (r, c): (r0, c0) for r0, r1, c0, c1 in ranges for r in range(r0, r1) for c in range(c0, c1)
+            }
             # 区分の書かれていないシートは、一覧で前のファイルの区分を引き継ぐ
-            layout = parse_file(cells, merged, file, category)
+            layout = parse(grid, merged, file, category)
             category = layout["category"]
             writers["raw_sheets"].writerow(layout["sheet"])
             writers["raw_columns"].writerows(layout["columns"])

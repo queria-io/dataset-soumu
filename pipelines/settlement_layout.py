@@ -29,8 +29,6 @@ def normalize(value) -> str:
     return re.sub(r"\s+", "", unicodedata.normalize("NFKC", str(value)))
 
 
-Range = tuple[int, int, int, int]
-
 
 def cell(grid: list[list], r: int, c: int):
     return grid[r][c] if r < len(grid) and c < len(grid[r]) else None
@@ -328,14 +326,3 @@ COLUMNS = {
     },
 }
 
-
-def parse_file(cells, ranges, file: dict, category: str | None) -> dict:
-    """1 つの Excel のセル（行番号, 列番号, 値の文字）と結合セルの範囲（first_row, last_row,
-    first_col, last_col）から parse を流す。番号は 1 始まりで、raw_cells・raw_merged_cells と同じ。"""
-    values = {(r - 1, c - 1): value for r, c, value in cells}
-    ranges = sorted((r0 - 1, r1, c0 - 1, c1) for r0, r1, c0, c1 in ranges)
-    height = max([r for r, _ in values] + [r1 - 1 for _, r1, _, _ in ranges], default=-1) + 1
-    width = max([c for _, c in values] + [c1 - 1 for _, _, _, c1 in ranges], default=-1) + 1
-    grid = [[values.get((r, c)) for c in range(width)] for r in range(height)]
-    merged = {(r, c): (r0, c0) for r0, r1, c0, c1 in ranges for r in range(r0, r1) for c in range(c0, c1)}
-    return parse(grid, merged, file, category)

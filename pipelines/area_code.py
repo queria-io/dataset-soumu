@@ -43,12 +43,20 @@ def resolve_links(html: str) -> tuple[str, str]:
     return csvs[0], xlss[0]
 
 
+# コード一覧の CSV の列。dbt の raw はこの名前で読むので、無い列は NULL になって気付けない
+CSV_COLUMNS = (
+    "ken-code", "sityouson-code", "tiiki-code", "ken-name",
+    "sityouson-name1", "sityouson-name2", "sityouson-name3", "yomigana",
+)
+
+
 def csv_rows(content: bytes, sha256: str) -> list[dict]:
     """コード一覧の CSV の行を、列名のまま辞書にする。source_row は見出しを 1 行目とした行番号。"""
-    return [
-        {"source_sha256": sha256, "source_row": i, **row}
-        for i, row in enumerate(csv.DictReader(io.StringIO(content.decode("cp932"))), 2)
-    ]
+    reader = csv.DictReader(io.StringIO(content.decode("cp932")))
+    missing = sorted(set(CSV_COLUMNS) - set(reader.fieldnames or ()))
+    if missing:
+        raise SystemExit(f"コード一覧の CSV に列が無い: {missing}")
+    return [{"source_sha256": sha256, "source_row": i, **row} for i, row in enumerate(reader, 2)]
 
 
 def _cell_text(cell: xlrd.sheet.Cell, datemode: int) -> str | None:
@@ -64,7 +72,7 @@ def excel_rows(content: bytes, sha256: str) -> list[dict]:
     """変更の履歴の Excel の最初のシートの行を、A〜E 列の値の辞書にする。行番号は 1 始まり。"""
     book = xlrd.open_workbook(file_contents=content)
     sheet = book.sheet_by_index(0)
-    return [
+    rows = [
         {
             "source_sha256": sha256,
             "source_sheet": sheet.name,
@@ -73,6 +81,10 @@ def excel_rows(content: bytes, sha256: str) -> list[dict]:
         }
         for i in range(sheet.nrows)
     ]
+    # stg は A 列が「都道府県」の見出し行より下を読む。見出し行が無いと変更の履歴が 0 行になる
+    if not any((row["col_1"] or "").replace("　", " ").strip() == "都道府県" for row in rows):
+        raise SystemExit("変更の履歴の Excel に見出し行（都道府県）が無い")
+    return rows
 
 
 def _write_ndjson(records: list[dict], path: Path) -> None:
