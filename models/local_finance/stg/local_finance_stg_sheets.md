@@ -1,0 +1,31 @@
+---
+$schema: https://queria.io/schemas/table/v1.json
+table: local_finance.stg_sheets
+title: 市町村別決算状況調 Excel のシート
+description: |-
+  Excel 1 ファイル（1 シート）ごとの年度・区分・表と、見出しと団体の行・列の位置です。
+primary_key: [source_sha256]
+sources:
+  - path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
+fields:
+  - name: source_sha256
+    title: 元の Excel の sha256
+    description: source_file の sha256
+  - name: fiscal_year
+    title: 決算年度（西暦）
+  - name: entity_group
+    title: 区分（都市・町村）
+  - name: section
+    title: 表
+    description: 概況・歳入内訳・目的別歳出内訳・性質別歳出内訳・地方債現在高等・歳出内訳
+  - name: header_first_row
+    title: 見出しの先頭の行番号
+  - name: data_first_row
+    title: 団体の先頭の行番号
+  - name: name_col
+    title: 団体名の列番号
+  - name: code_col
+    title: 団体コードの列番号
+    description: 2010 年度までは NULL
+published: false
+---
