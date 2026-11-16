@@ -1,4 +1,0 @@
-schema: local_finance
-name: raw_rows
-description: Excel の団体の行の都道府県名・団体名・団体コード。pipelines/settlement_layout.py が見つけたもの。
-annotations: { queria: { published: false } }
