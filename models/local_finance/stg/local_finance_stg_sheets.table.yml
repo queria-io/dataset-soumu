@@ -4,14 +4,13 @@ title: 市町村別決算状況調 Excel のシート
 description: |-
   Excel 1 ファイル（1 シート）ごとの年度・区分・表と、見出しと団体の行・列の位置です。
 annotations: { queria: { published: false } }
-primary_key: [source_url]
+primary_key: [source_sha256]
 sources:
   - path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
 fields:
-  - name: source_url
-    title: 出典の Excel の URL
-  - name: page_url
-    title: 出典の年度のページの URL
+  - name: source_sha256
+    title: 元の Excel の sha256
+    description: source_file の sha256
   - name: fiscal_year
     title: 決算年度（西暦）
   - name: entity_group

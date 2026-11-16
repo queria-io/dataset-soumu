@@ -4,12 +4,13 @@ title: 市町村別決算状況調 Excel の列の項目
 description: |-
   Excel の値の列ごとの見出し・項目名・単位です。見出しは親から順に「/」でつないでいます。項目名は、見出しから国勢調査の年を外し、表記ゆれ（補てん→補塡）を統一したものです。
 annotations: { queria: { published: false } }
-primary_key: [source_url, col_no]
+primary_key: [source_sha256, col_no]
 sources:
   - path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
 fields:
-  - name: source_url
-    title: 出典の Excel の URL
+  - name: source_sha256
+    title: 元の Excel の sha256
+    description: source_file の sha256
   - name: col_no
     title: 列番号
   - name: heading

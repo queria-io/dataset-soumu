@@ -1,0 +1,4 @@
+schema: local_finance
+name: stg_cells
+description: raw_cells の値の前後の空白を除き、数値として読める値を number に入れた中間テーブル。
+annotations: { queria: { published: false } }
