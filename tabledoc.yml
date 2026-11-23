@@ -19,7 +19,6 @@ topics:
   - 標準地域コード
   - 市区町村コード
   - 廃置分合
-homepage: https://github.com/queria-io/dataset-soumu
 language: ja
 licenses:
   - JP-PDL-1.0
