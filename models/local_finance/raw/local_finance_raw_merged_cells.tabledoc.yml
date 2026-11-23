@@ -1,0 +1,21 @@
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
+title: 市町村別決算状況調 Excel の結合セル
+description: |-
+  Excel の結合セルの範囲です。2007 年度以降の Excel の見出しにあります。
+primary_key: [source_sha256, first_row, first_col]
+sources: [kessan_jokyo_2]
+columns:
+  - name: source_sha256
+    title: 元の Excel の sha256
+    description: source_file の sha256
+  - name: source_sheet
+    title: 元の Excel のシート名
+  - name: first_row
+    title: 先頭の行番号
+  - name: last_row
+    title: 末尾の行番号
+  - name: first_col
+    title: 先頭の列番号
+  - name: last_col
+    title: 末尾の列番号
+listed: false
