@@ -28,11 +28,11 @@ columns:
   - name: area_code
     title: 標準地域コード（5桁）
     description: lg_code の先頭 5 桁。2010 年度までは NULL
-    entity: {type: foreign, name: city}
+    entity: city
   - name: lg_code
     title: 全国地方公共団体コード（6桁）
     description: Excel の団体コード（6 桁・チェックデジット付き）。2010 年度までは Excel に団体コードが無いので NULL
-    entity: {type: foreign, name: city}
+    entity: city
   - name: pref_name
     title: 都道府県名
   - name: entity_name

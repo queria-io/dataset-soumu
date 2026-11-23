@@ -18,4 +18,4 @@ columns:
     title: 先頭の列番号
   - name: last_col
     title: 末尾の列番号
-listed: false
+hidden: true

@@ -19,4 +19,4 @@ columns:
   - name: value
     title: セルの値
     description: Excel のセルの値の文字。数値は Excel が持つ値をそのまま文字にしています
-listed: false
+hidden: true
