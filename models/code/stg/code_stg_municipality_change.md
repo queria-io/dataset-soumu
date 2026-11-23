@@ -1,6 +1,0 @@
----
-$schema: https://queria.io/schemas/table/v1.json
-table: code.stg_municipality_change
-description: raw_municipality_change を 1 件 1 行にした中間テーブル。改正の先頭行にだけある都道府県・改正事由・施行年月日を下の行へ送り、旧コード・新コードの欄を 3 桁のコードと名前に分ける。
-published: false
----

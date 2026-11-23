@@ -1,6 +1,0 @@
----
-$schema: https://queria.io/schemas/table/v1.json
-table: code.raw_municipality_change
-description: pipelines/area_code.py が取得した標準地域コードの変更の履歴の Excel の行を、A〜E 列の値の文字のまま読んだ中間テーブル。
-published: false
----

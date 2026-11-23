@@ -1,0 +1,3 @@
+$schema: https://tabledoc.queria.io/schemas/table/v1.json
+description: raw_cells の値の前後の空白を除き、数値として読める値を number に入れた中間テーブル。
+listed: false
