@@ -21,4 +21,4 @@ columns:
     description: 国勢調査人口・産業構造の値の元になった国勢調査の年（西暦）。見出しから外した年です。それ以外の項目は NULL
   - name: unit
     title: 単位
-listed: false
+hidden: true

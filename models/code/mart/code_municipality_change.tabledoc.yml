@@ -17,7 +17,7 @@ columns:
   - name: pref_code
     title: 都道府県コード（2桁）
     description: 都道府県コード（2桁）
-    entity: {type: foreign, name: prefecture}
+    entity: prefecture
   - name: pref_name
     title: 都道府県名
     description: 都道府県名

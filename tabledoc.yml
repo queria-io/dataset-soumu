@@ -27,21 +27,21 @@ licenses:
 sources:
   - id: rssystem
     title: 行政事業レビュー見える化サイト（行政改革推進本部事務局）
-    path: https://rssystem.go.jp
+    url: https://rssystem.go.jp
   - id: soumu
     title: 総務省ウェブサイト
-    path: https://www.soumu.go.jp/
+    url: https://www.soumu.go.jp/
   - id: kessan_jokyo_2
     title: 市町村別決算状況調（総務省）
-    path: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
+    url: https://www.soumu.go.jp/iken/kessan_jokyo_2.html
   - id: 9-5
     title: 統計に用いる標準地域コード（総務省）
-    path: https://www.soumu.go.jp/toukei_toukatsu/index/seido/9-5.htm
+    url: https://www.soumu.go.jp/toukei_toukatsu/index/seido/9-5.htm
 
 contributors:
   - id: soumu
     title: 総務省
-    path: https://www.soumu.go.jp/
+    url: https://www.soumu.go.jp/
     roles: [rightsHolder]
 
 spatial_coverage: [JP]

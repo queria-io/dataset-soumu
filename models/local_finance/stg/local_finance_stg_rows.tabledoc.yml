@@ -17,5 +17,5 @@ columns:
   - name: lg_code
     title: 全国地方公共団体コード（6桁）
     description: 2010 年度までは NULL
-    entity: {type: foreign, name: city}
-listed: false
+    entity: city
+hidden: true

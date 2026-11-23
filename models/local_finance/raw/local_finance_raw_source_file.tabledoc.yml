@@ -1,3 +1,3 @@
 $schema: https://tabledoc.queria.io/schemas/table/v1.json
 description: 取得した市町村別決算状況調の Excel の一覧（取得の記録）。file_no は年度ごとのページに並ぶ順で、区分の書かれていないシートが前のファイルの区分を引き継ぐのに使う。
-listed: false
+hidden: true

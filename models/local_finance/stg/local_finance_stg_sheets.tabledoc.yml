@@ -24,4 +24,4 @@ columns:
   - name: code_col
     title: 団体コードの列番号
     description: 2010 年度までは NULL
-listed: false
+hidden: true
