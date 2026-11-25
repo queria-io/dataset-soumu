@@ -39,6 +39,7 @@ columns:
   - name: area_kind
     title: 階層区分（prefecture / designated_city / ward / district / municipality）
     description: 行の階層区分。prefecture=都道府県の合計行、designated_city=政令指定都市の合計行、ward=政令市の行政区、district=郡・振興局・支庁の合計行、municipality=市町村と東京の特別区。集計行と明細行が同じ表に同居するので、絞らずに数えると重複する
+    dimension: categorical
   - name: is_municipality
     title: 市区町村として数える行か（政令市は1団体、行政区は数えない）
     description: 市区町村数を数えるときに1団体として数える行かどうか。政令指定都市は合計行を真・行政区を偽とし、東京の特別区23は真、その集計行「特別区部」（13100）は偽。市区町村単位の集計はこの列で絞る

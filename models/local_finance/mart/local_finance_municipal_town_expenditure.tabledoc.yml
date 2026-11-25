@@ -24,6 +24,7 @@ columns:
   - name: entity_group
     title: 区分（都市・町村）
     description: Excel の区分。都市 は市と特別区、町村 は町と村
+    dimension: categorical
   - name: area_code
     title: 標準地域コード（5桁）
     description: lg_code の先頭 5 桁。2010 年度までは NULL
