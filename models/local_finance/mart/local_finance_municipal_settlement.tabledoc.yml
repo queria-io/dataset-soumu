@@ -30,6 +30,7 @@ columns:
   - name: entity_group
     title: 区分（都市・町村）
     description: Excel の区分。都市 は市と特別区、町村 は町と村
+    dimension: categorical
   - name: area_code
     title: 標準地域コード（5桁）
     description: lg_code の先頭 5 桁。2010 年度までは NULL
@@ -46,9 +47,11 @@ columns:
   - name: section
     title: 表
     description: Excel の表の名前（概況・歳入内訳・目的別歳出内訳・性質別歳出内訳・地方債現在高等・歳出内訳）
+    dimension: categorical
   - name: item
     title: 項目
     description: Excel の見出しを親から順に「/」でつないだ項目名。「うち」で始まる項目は、左の項目の内数
+    dimension: categorical
   - name: unit
     title: 単位
     description: 千円・人・%・km2。財政力指数は NULL
